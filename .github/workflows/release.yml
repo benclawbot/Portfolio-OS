@@ -12,12 +12,13 @@ on:
         required: true
         default: main
         type: string
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   verify-and-release:
@@ -27,16 +28,10 @@ jobs:
         id: release
         shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
           INPUT_VERSION: ${{ inputs.version }}
-          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            version="$INPUT_VERSION"
-          else
-            version="${REF_NAME#v}"
-          fi
+          version="$INPUT_VERSION"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid release version: $version" >&2
             exit 1
@@ -46,7 +41,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref }}
+          ref: ${{ inputs.target }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -70,6 +65,39 @@ jobs:
             echo "pyproject version $package_version does not match release $RELEASE_VERSION" >&2
             exit 1
           fi
+
+      - name: Verify exported version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          exported_version="$(python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          tree = ast.parse(Path('portfolio_os/__init__.py').read_text(encoding='utf-8'))
+          for node in tree.body:
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id == '__version__':
+                          print(ast.literal_eval(node.value))
+                          raise SystemExit
+          raise SystemExit('__version__ not found')
+          PY
+          )"
+          if [[ "$exported_version" != "$RELEASE_VERSION" ]]; then
+            echo "portfolio_os.__version__ $exported_version does not match release $RELEASE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Verify changelog section
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          grep -Eq "^## ${RELEASE_VERSION}$" CHANGELOG.md
 
       - name: Install development dependencies
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
@@ -102,8 +130,7 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS.txt
 
-      - name: Create tag for manual release
-        if: github.event_name == 'workflow_dispatch'
+      - name: Create annotated release tag
         shell: bash
         env:
           TAG: ${{ steps.release.outputs.tag }}
@@ -111,12 +138,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists" >&2
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin" >&2
             exit 1
           fi
           git tag -a "$TAG" -m "Portfolio OS $TAG"
-          git push origin "$TAG"
+          git push origin "refs/tags/$TAG"
 
       - name: Publish GitHub release
         shell: bash
