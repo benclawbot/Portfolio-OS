@@ -12,6 +12,7 @@ from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGr
 from portfolio_os.history import PortfolioHistory, SnapshotResult
 from portfolio_os.pipeline import PipelineResult, PipelineStageResult, PortfolioPipeline
 from portfolio_os.plugins import PluginRegistry
+from portfolio_os.policy import PolicyResult, PolicyViolation, PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuildResult, PortfolioBuilder
 from portfolio_os.sync import GitHubAPIClient, SubprocessGitClient, WorkspaceSynchronizer
 from portfolio_os.trends import PortfolioTrends, TrendResult
@@ -41,5 +42,8 @@ __all__ = [
     "PortfolioPipeline",
     "PipelineResult",
     "PipelineStageResult",
+    "PortfolioPolicy",
+    "PolicyResult",
+    "PolicyViolation",
 ]
-__version__ = "0.12.0"
+__version__ = "0.13.0"
