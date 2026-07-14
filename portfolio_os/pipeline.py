@@ -91,8 +91,8 @@ class PortfolioPipeline:
             completed = time.time()
             status = "failed" if any(stage.status == "failed" for stage in stages) else "completed"
             result = PipelineResult(str(self.workspace), status, tuple(stages), started, completed)
-            history_path = self.operations.record_run(result.to_dict())
-            return PipelineResult(result.workspace, result.status, result.stages, result.started_at_epoch, result.completed_at_epoch)
+            self.operations.record_run(result.to_dict())
+            return result
 
     def _report_stage(self) -> dict[str, Any]:
         report = PortfolioBuilder(self.workspace).build(self.similarity_threshold)
@@ -109,6 +109,7 @@ class PortfolioPipeline:
 
     def _policy_stage(self) -> dict[str, Any]:
         result = PortfolioPolicy(self.workspace, self.policy_path).evaluate(pipeline_status="completed")
+        PortfolioDashboard(self.workspace).build()
         if result.status == "failed":
             raise PolicyGateError(f"policy failed; report: {result.report_path}")
         return result.to_dict()
