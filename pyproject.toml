@@ -1,6 +1,6 @@
 [project]
 name = "portfolio-os"
-version = "0.13.0"
+version = "0.14.0"
 description = "Evidence-based GitHub portfolio governance and automation"
 requires-python = ">=3.11"
 dependencies = []
