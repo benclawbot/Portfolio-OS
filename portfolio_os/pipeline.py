@@ -92,6 +92,8 @@ class PortfolioPipeline:
             status = "failed" if any(stage.status == "failed" for stage in stages) else "completed"
             result = PipelineResult(str(self.workspace), status, tuple(stages), started, completed)
             self.operations.record_run(result.to_dict())
+            if (self.workspace / "portfolio" / "portfolio-summary.json").exists():
+                PortfolioDashboard(self.workspace).build()
             return result
 
     def _report_stage(self) -> dict[str, Any]:
@@ -109,7 +111,6 @@ class PortfolioPipeline:
 
     def _policy_stage(self) -> dict[str, Any]:
         result = PortfolioPolicy(self.workspace, self.policy_path).evaluate(pipeline_status="completed")
-        PortfolioDashboard(self.workspace).build()
         if result.status == "failed":
             raise PolicyGateError(f"policy failed; report: {result.report_path}")
         return result.to_dict()
