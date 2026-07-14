@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, and produces portfolio-wide reports. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, and tracks portfolio changes over time. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -73,6 +73,17 @@ portfolio-report --workspace ~/Portfolio-OS-workspace --output-dir reports/lates
 
 The pipeline writes `portfolio-summary.json`, `portfolio-report.md`, and `portfolio-graph.json`. Reports include analysis coverage, languages, frameworks, findings, repository status, and explicit attention queues for dirty, inaccessible, archived, missing-analysis, and analyzer-error cases. See [`docs/PORTFOLIO-REPORTING.md`](docs/PORTFOLIO-REPORTING.md).
 
+## Portfolio history and change tracking
+
+Portfolio OS `0.9.0` records an immutable snapshot after each report and compares it with the previous snapshot.
+
+```bash
+portfolio-report --pretty
+portfolio-report --no-history
+```
+
+History records stable repository additions, removals, renames and metadata changes, HEAD movement, analysis metric changes, and portfolio summary deltas. Snapshot fingerprints are deterministic and history artifacts are persisted atomically. See [`docs/PORTFOLIO-HISTORY.md`](docs/PORTFOLIO-HISTORY.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -115,5 +126,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - GitHub synchronization never resets, rebases, cleans, force-updates, deletes branches, or deletes local repositories.
 - Dirty working trees and non-default branches are preserved and reported.
 - Portfolio artifacts are rebuilt from synchronization state and cached analyzer evidence, not repository marketing claims.
+- Historical snapshots contain derived evidence only and never modify synchronized repositories.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
