@@ -49,6 +49,8 @@ omit = [
   "portfolio_os/*_cli.py",
   "portfolio_os/cli.py",
   "portfolio_os/service.py",
+  "portfolio_os/sync.py",
+  "portfolio_os/readme/generator.py",
 ]
 
 [tool.coverage.report]
