@@ -8,6 +8,7 @@ from portfolio_os.config import PortfolioConfig, load_runtime_config
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
+from portfolio_os.history import PortfolioHistory, SnapshotResult
 from portfolio_os.plugins import PluginRegistry
 from portfolio_os.portfolio import PortfolioBuildResult, PortfolioBuilder
 from portfolio_os.sync import GitHubAPIClient, SubprocessGitClient, WorkspaceSynchronizer
@@ -28,5 +29,7 @@ __all__ = [
     "WorkspaceSynchronizer",
     "PortfolioBuildResult",
     "PortfolioBuilder",
+    "PortfolioHistory",
+    "SnapshotResult",
 ]
-__version__ = "0.8.0"
+__version__ = "0.9.0"
