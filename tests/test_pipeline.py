@@ -16,10 +16,22 @@ def test_runs_all_artifact_stages_without_sync(tmp_path):
     seed_workspace(tmp_path)
     result = PortfolioPipeline(tmp_path).run()
     assert result.status == "completed"
-    assert [stage.status for stage in result.stages] == ["skipped", "completed", "completed", "completed", "skipped"]
+    assert [stage.status for stage in result.stages] == [
+        "skipped",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "skipped",
+    ]
     assert (tmp_path / "portfolio" / "portfolio-summary.json").exists()
     assert (tmp_path / "history" / "latest.json").exists()
+    assert (tmp_path / "reuse" / "duplicate-components.json").exists()
+    assert (tmp_path / "backlog" / "portfolio-backlog.json").exists()
     assert (tmp_path / "trends" / "portfolio-trends.json").exists()
+    assert (tmp_path / "documents" / "ARCHITECTURE.generated.md").exists()
     assert (tmp_path / "dashboard" / "index.html").exists()
     assert (tmp_path / "pipeline" / "latest-run.json").exists()
 
@@ -38,7 +50,16 @@ def test_failure_blocks_later_stages_by_default(tmp_path):
 
     result = PortfolioPipeline(tmp_path, sync_stage=fail).run()
     assert result.status == "failed"
-    assert [stage.status for stage in result.stages] == ["failed", "blocked", "blocked", "blocked", "skipped"]
+    assert [stage.status for stage in result.stages] == [
+        "failed",
+        "blocked",
+        "blocked",
+        "blocked",
+        "blocked",
+        "blocked",
+        "blocked",
+        "skipped",
+    ]
     assert "RuntimeError: sync failed" == result.stages[0].error
 
 
@@ -51,7 +72,15 @@ def test_continue_on_error_attempts_independent_later_stages(tmp_path):
     result = PortfolioPipeline(tmp_path, sync_stage=fail).run(continue_on_error=True)
     assert result.status == "failed"
     assert result.stages[0].status == "failed"
-    assert [stage.status for stage in result.stages[1:]] == ["completed", "completed", "completed", "skipped"]
+    assert [stage.status for stage in result.stages[1:]] == [
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "skipped",
+    ]
 
 
 def test_policy_can_be_enforced_as_final_stage(tmp_path):
@@ -66,7 +95,10 @@ def test_policy_can_be_enforced_as_final_stage(tmp_path):
 def test_failed_policy_fails_pipeline(tmp_path):
     seed_workspace(tmp_path)
     policy = tmp_path / "strict.json"
-    policy.write_text(json.dumps({"rules": {"min_analysis_coverage": {"value": 1.0, "level": "fail"}}}), encoding="utf-8")
+    policy.write_text(
+        json.dumps({"rules": {"min_analysis_coverage": {"value": 1.0, "level": "fail"}}}),
+        encoding="utf-8",
+    )
     result = PortfolioPipeline(tmp_path, enforce_policy=True, policy_path=policy).run()
     assert result.status == "failed"
     assert result.stages[-1].status == "failed"
