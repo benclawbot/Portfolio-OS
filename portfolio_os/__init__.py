@@ -1,8 +1,10 @@
 """Portfolio OS: evidence-based repository analysis and governance."""
 
+from portfolio_os.config import PortfolioConfig, load_runtime_config
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
+from portfolio_os.plugins import PluginRegistry
 
 __all__ = [
     "AnalysisEngine",
@@ -12,5 +14,8 @@ __all__ = [
     "GraphQuery",
     "GraphStore",
     "KnowledgeGraph",
+    "PluginRegistry",
+    "PortfolioConfig",
+    "load_runtime_config",
 ]
-__version__ = "0.5.0"
+__version__ = "0.6.0"
