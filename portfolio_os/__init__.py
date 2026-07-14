@@ -5,6 +5,7 @@ from portfolio_os.git_auth import configure_git_auth
 configure_git_auth()
 
 from portfolio_os.config import PortfolioConfig, load_runtime_config
+from portfolio_os.dashboard import DashboardResult, PortfolioDashboard
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
@@ -34,5 +35,7 @@ __all__ = [
     "SnapshotResult",
     "PortfolioTrends",
     "TrendResult",
+    "PortfolioDashboard",
+    "DashboardResult",
 ]
-__version__ = "0.10.0"
+__version__ = "0.11.0"
