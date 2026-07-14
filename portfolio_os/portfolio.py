@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from portfolio_os.graph import GraphBuilder, GraphStore, KnowledgeGraph
+from portfolio_os.intelligence import RepositoryIntelligence
 from portfolio_os.sync import RepositoryState, load_state
 
 
@@ -28,6 +29,8 @@ class PortfolioBuilder:
         self.output_dir = (output_dir or self.workspace / "portfolio").expanduser().resolve()
         self.state_path = self.workspace / "sync-state.json"
         self.analysis_dir = self.workspace / "analysis"
+        self.github_dir = self.workspace / "github" / "repositories"
+        self.intelligence = RepositoryIntelligence()
 
     def build(self, similarity_threshold: float = 0.55) -> PortfolioBuildResult:
         state = load_state(self.state_path)
@@ -45,19 +48,12 @@ class PortfolioBuilder:
         return PortfolioBuildResult(summary_path, report_path, graph_path, data)
 
     def _repository_record(self, repository: RepositoryState) -> dict[str, Any]:
-        analysis_path = self.analysis_dir / f"{repository.id}.json"
-        analysis: dict[str, Any] | None = None
-        analysis_error: str | None = None
-        if analysis_path.exists():
-            try:
-                analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as error:
-                analysis_error = str(error)
-
+        analysis, analysis_error = self._load_optional_json(self.analysis_dir / f"{repository.id}.json")
+        github, github_error = self._load_optional_json(self.github_dir / f"{repository.id}.json")
         facts = analysis.get("facts", {}) if analysis else {}
         summary = analysis.get("summary", {}) if analysis else {}
         findings = analysis.get("findings", []) if analysis else []
-        return {
+        record = {
             "id": repository.id,
             "name": repository.name,
             "full_name": repository.full_name,
@@ -73,6 +69,8 @@ class PortfolioBuilder:
             "updated_at": repository.updated_at,
             "analysis_available": analysis is not None,
             "analysis_error": analysis_error,
+            "github_index_available": github is not None,
+            "github_index_error": github_error,
             "primary_language": facts.get("languages", {}).get("primary"),
             "frameworks": sorted(facts.get("frameworks", {}).get("detected", [])),
             "file_count": facts.get("repository", {}).get("file_count", 0),
@@ -81,6 +79,20 @@ class PortfolioBuilder:
             "error_count": summary.get("error_count", 0),
             "severity_counts": dict(Counter(item.get("severity", "unknown") for item in findings)),
         }
+        record["intelligence"] = self.intelligence.evaluate(record, analysis, github)
+        return record
+
+    @staticmethod
+    def _load_optional_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+        if not path.exists():
+            return None, None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            return None, str(error)
+        if not isinstance(payload, dict):
+            return None, "JSON root must be an object"
+        return payload, None
 
     def _aggregate(self, owner: str, synchronized_at: str, repositories: list[dict[str, Any]]) -> dict[str, Any]:
         languages = Counter(item["primary_language"] for item in repositories if item["primary_language"])
@@ -90,8 +102,18 @@ class PortfolioBuilder:
             severities.update(item["severity_counts"])
         active = [item for item in repositories if item["accessible"] and not item["archived"]]
         analyzed = [item for item in repositories if item["analysis_available"]]
+        score_names = ("architecture", "technical_debt", "security", "release_readiness")
+        score_averages = {
+            name: round(
+                sum(item["intelligence"]["scores"][name]["score"] for item in active) / len(active),
+                1,
+            )
+            if active
+            else 0.0
+            for name in score_names
+        }
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "owner": owner,
             "source_synchronized_at": synchronized_at,
             "summary": {
@@ -102,11 +124,19 @@ class PortfolioBuilder:
                 "dirty_count": sum(item["dirty"] for item in repositories),
                 "analyzed_count": len(analyzed),
                 "analysis_coverage": round(len(analyzed) / len(repositories), 4) if repositories else 0.0,
+                "github_indexed_count": sum(item["github_index_available"] for item in repositories),
                 "total_files": sum(item["file_count"] for item in analyzed),
                 "total_test_files": sum(item["test_file_count"] for item in analyzed),
                 "total_findings": sum(item["finding_count"] for item in analyzed),
                 "analysis_errors": sum(item["error_count"] for item in analyzed),
+                "intelligence_score": round(
+                    sum(item["intelligence"]["overall_score"] for item in active) / len(active),
+                    1,
+                )
+                if active
+                else 0.0,
             },
+            "intelligence": {"averages": score_averages},
             "languages": dict(languages.most_common()),
             "frameworks": dict(frameworks.most_common()),
             "finding_severities": dict(severities.most_common()),
@@ -115,7 +145,13 @@ class PortfolioBuilder:
                 "inaccessible": [item["full_name"] for item in repositories if not item["accessible"]],
                 "archived": [item["full_name"] for item in repositories if item["archived"]],
                 "missing_analysis": [item["full_name"] for item in active if not item["analysis_available"]],
+                "missing_github_index": [item["full_name"] for item in active if not item["github_index_available"]],
                 "analysis_errors": [item["full_name"] for item in analyzed if item["error_count"]],
+                "low_release_readiness": [
+                    item["full_name"]
+                    for item in active
+                    if item["intelligence"]["scores"]["release_readiness"]["score"] < 60
+                ],
             },
             "repositories": repositories,
         }
@@ -172,13 +208,20 @@ class PortfolioBuilder:
             f"- Inaccessible: **{summary['inaccessible_count']}**",
             f"- Dirty working trees: **{summary['dirty_count']}**",
             f"- Analysis coverage: **{summary['analysis_coverage']:.1%}**",
+            f"- GitHub metadata indexed: **{summary['github_indexed_count']}**",
+            f"- Portfolio intelligence score: **{summary['intelligence_score']:.1f}/100**",
             f"- Files analyzed: **{summary['total_files']}**",
             f"- Test files detected: **{summary['total_test_files']}**",
             f"- Findings: **{summary['total_findings']}**",
             "",
-            "## Languages",
+            "## Intelligence",
             "",
         ]
+        lines.extend(
+            f"- {name.replace('_', ' ').title()}: **{score:.1f}/100**"
+            for name, score in data["intelligence"]["averages"].items()
+        )
+        lines.extend(["", "## Languages", ""])
         lines.extend(f"- {name}: {count}" for name, count in data["languages"].items())
         if not data["languages"]:
             lines.append("- No analyzed language evidence yet.")
@@ -192,8 +235,9 @@ class PortfolioBuilder:
         lines.extend(["## Repositories", ""])
         for repository in data["repositories"]:
             language = repository["primary_language"] or "unknown"
+            intelligence = repository["intelligence"]["overall_score"]
             lines.append(
                 f"- `{repository['full_name']}` — {repository['sync_status']}; "
-                f"language: {language}; findings: {repository['finding_count']}"
+                f"language: {language}; findings: {repository['finding_count']}; intelligence: {intelligence}/100"
             )
         return "\n".join(lines).rstrip() + "\n"
