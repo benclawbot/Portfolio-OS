@@ -10,10 +10,12 @@ from typing import Any, Callable, Iterator
 
 from portfolio_os.backlog import PortfolioBacklog
 from portfolio_os.dashboard import PortfolioDashboard
+from portfolio_os.generators import PortfolioDocumentGenerator
 from portfolio_os.history import PortfolioHistory
 from portfolio_os.operations import RefreshOperations
 from portfolio_os.policy import PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuilder
+from portfolio_os.reuse import PortfolioReuseAnalyzer
 from portfolio_os.trends import PortfolioTrends
 
 
@@ -84,8 +86,10 @@ class PortfolioPipeline:
             configured = [
                 ("sync", self.sync_stage),
                 ("report", self._report_stage),
+                ("reuse", self._reuse_stage),
                 ("backlog", self._backlog_stage),
                 ("trends", self._trends_stage),
+                ("documents", self._documents_stage),
                 ("dashboard", self._dashboard_stage),
                 ("policy", self._policy_stage if self.enforce_policy else None),
             ]
@@ -133,6 +137,9 @@ class PortfolioPipeline:
             "delta_summary": history.delta["summary"],
         }
 
+    def _reuse_stage(self) -> dict[str, Any]:
+        return PortfolioReuseAnalyzer(self.workspace).build().to_dict()
+
     def _backlog_stage(self) -> dict[str, Any]:
         return PortfolioBacklog(self.workspace).build().to_dict()
 
@@ -144,6 +151,9 @@ class PortfolioPipeline:
             "snapshot_count": trends.data["snapshot_count"],
             "regression_count": len(trends.data["regressions"]),
         }
+
+    def _documents_stage(self) -> dict[str, Any]:
+        return PortfolioDocumentGenerator(self.workspace).build().to_dict()
 
     def _dashboard_stage(self) -> dict[str, Any]:
         dashboard = PortfolioDashboard(self.workspace).build()
