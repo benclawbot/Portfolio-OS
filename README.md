@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, and identifies multi-period trends. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, and generates an offline static dashboard. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -97,6 +97,17 @@ portfolio-trends --retain 90 --apply-retention --pretty
 
 Trend artifacts include metric timelines, net change, repository activity, and evidence-based regression signals. Snapshot retention is preview-only unless `--apply-retention` is supplied. See [`docs/PORTFOLIO-TRENDS.md`](docs/PORTFOLIO-TRENDS.md).
 
+## Static portfolio dashboard
+
+Portfolio OS `0.11.0` generates a self-contained dashboard from real portfolio and trend artifacts.
+
+```bash
+portfolio-dashboard --pretty
+portfolio-dashboard --workspace ~/Portfolio-OS-workspace --output-dir public
+```
+
+The dashboard contains portfolio metrics, inline SVG trend visualization, languages, regression signals, attention queues, and repository status. It has no external scripts, fonts, trackers, network calls, or mock data. See [`docs/PORTFOLIO-DASHBOARD.md`](docs/PORTFOLIO-DASHBOARD.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -141,5 +152,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - Portfolio artifacts are rebuilt from synchronization state and cached analyzer evidence, not repository marketing claims.
 - Historical snapshots contain derived evidence only and never modify synchronized repositories.
 - Snapshot deletion requires an explicit retention apply flag and always preserves at least one snapshot.
+- Dashboard generation reads derived artifacts and writes only static output files.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
