@@ -22,15 +22,23 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class GitHubSyncConfig:
+    owner: str = "benclawbot"
+    api_url: str = "https://api.github.com"
+
+
+@dataclass(frozen=True)
 class PortfolioConfig:
     workspace: Path = Path(".portfolio-os")
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    github: GitHubSyncConfig = field(default_factory=GitHubSyncConfig)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PortfolioConfig":
         analysis_data = data.get("analysis", {})
         logging_data = data.get("logging", {})
+        github_data = data.get("github", {})
         return cls(
             workspace=Path(data.get("workspace", ".portfolio-os")),
             analysis=AnalysisConfig(
@@ -42,6 +50,10 @@ class PortfolioConfig:
             logging=LoggingConfig(
                 level=str(logging_data.get("level", "INFO")).upper(),
                 json=bool(logging_data.get("json", False)),
+            ),
+            github=GitHubSyncConfig(
+                owner=str(github_data.get("owner", "benclawbot")),
+                api_url=str(github_data.get("api_url", "https://api.github.com")),
             ),
         )
 
