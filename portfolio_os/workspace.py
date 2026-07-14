@@ -60,6 +60,7 @@ class WorkspaceValidator:
         "generated_architecture": ("documents/ARCHITECTURE.generated.md", True),
         "dashboard": ("dashboard/index.html", True),
         "dashboard_data": ("dashboard/dashboard-data.json", True),
+        "telemetry": ("telemetry/metrics.json", True),
         "artifact_catalog": ("artifacts/catalog.json", True),
         "pipeline_latest": ("pipeline/latest-run.json", False),
         "policy_latest": ("policy/latest-policy.json", False),
@@ -124,6 +125,8 @@ class WorkspaceValidator:
             stages.append("documents")
         if failed & {"dashboard", "dashboard_data"}:
             stages.append("dashboard")
+        if "telemetry" in failed:
+            stages.append("telemetry")
         if "artifact_catalog" in failed:
             stages.append("artifacts")
         return {
