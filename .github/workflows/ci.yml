@@ -33,6 +33,9 @@ jobs:
         run: |
           portfolio-os --help
           portfolio-github-index --help
+          portfolio-backlog --help
+          portfolio-artifacts --help
+          portfolio-service --help
           portfolio-report --help
           portfolio-trends --help
           portfolio-dashboard --help
@@ -40,13 +43,16 @@ jobs:
           portfolio-policy --help
           portfolio-ops --help
           portfolio-workspace --help
-      - name: End-to-end 1.0 workspace
+      - name: End-to-end workspace
         run: |
           mkdir -p /tmp/portfolio-os-v1/github
           printf '{"owner":"benclawbot","synchronized_at":"","repositories":{}}\n' > /tmp/portfolio-os-v1/sync-state.json
           printf '{"schema_version":1,"owner":"benclawbot","repositories":{}}\n' > /tmp/portfolio-os-v1/github/index.json
-          portfolio-refresh --workspace /tmp/portfolio-os-v1 --skip-sync --enforce-policy --pretty
+          portfolio-refresh --workspace /tmp/portfolio-os-v1 --skip-sync --lineage-config config/portfolio.json --enforce-policy --pretty
           portfolio-policy --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-backlog --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-artifacts --workspace /tmp/portfolio-os-v1 catalog
+          portfolio-service --workspace /tmp/portfolio-os-v1 jobs
           portfolio-ops runs --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-ops lock-status --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-workspace validate --workspace /tmp/portfolio-os-v1 --pretty
@@ -54,6 +60,16 @@ jobs:
           test -f /tmp/portfolio-os-v1/pipeline/latest-run.json
           test "$(find /tmp/portfolio-os-v1/pipeline/runs -type f | wc -l)" -eq 1
           test -f /tmp/portfolio-os-v1/policy/latest-policy.json
+          test -f /tmp/portfolio-os-v1/github/index.json
+          test -f /tmp/portfolio-os-v1/portfolio/portfolio-summary.json
+          test -f /tmp/portfolio-os-v1/lineage/repository-lineage.json
+          test -f /tmp/portfolio-os-v1/reuse/duplicate-components.json
+          test -f /tmp/portfolio-os-v1/backlog/portfolio-backlog.json
+          test -f /tmp/portfolio-os-v1/documents/CHANGELOG.generated.md
+          test -f /tmp/portfolio-os-v1/documents/RELEASE-NOTES.generated.md
+          test -f /tmp/portfolio-os-v1/documents/ARCHITECTURE.generated.md
+          test -f /tmp/portfolio-os-v1/telemetry/metrics.json
+          test -f /tmp/portfolio-os-v1/artifacts/catalog.json
           test -f /tmp/portfolio-os-v1/dashboard/index.html
           test -f /tmp/portfolio-os-v1/workspace/manifest.json
           test ! -f /tmp/portfolio-os-v1/.portfolio-os-refresh.lock
@@ -61,6 +77,8 @@ jobs:
           grep -q '"status": "passed"' /tmp/portfolio-os-v1/policy/latest-policy.json
           grep -q '"validation"' /tmp/portfolio-os-v1/workspace/manifest.json
           grep -q '"github_index"' /tmp/portfolio-os-v1/workspace/manifest.json
+          grep -q '"telemetry"' /tmp/portfolio-os-v1/workspace/manifest.json
+          grep -q "Highest-priority backlog" /tmp/portfolio-os-v1/dashboard/index.html
           grep -q "Recent refresh runs" /tmp/portfolio-os-v1/dashboard/index.html
           grep -q "Policy" /tmp/portfolio-os-v1/dashboard/index.html
           ! grep -qi "<script" /tmp/portfolio-os-v1/dashboard/index.html
