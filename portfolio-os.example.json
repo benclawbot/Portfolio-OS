@@ -1,0 +1,13 @@
+{
+  "workspace": ".portfolio-os",
+  "analysis": {
+    "enabled_analyzers": [],
+    "disabled_analyzers": [],
+    "max_file_bytes": 2000000,
+    "fail_on_plugin_error": false
+  },
+  "logging": {
+    "level": "INFO",
+    "json": false
+  }
+}
