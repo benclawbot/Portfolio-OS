@@ -1,6 +1,6 @@
 [project]
 name = "portfolio-os"
-version = "0.7.0"
+version = "0.8.0"
 description = "Evidence-based GitHub portfolio governance and automation"
 requires-python = ">=3.11"
 dependencies = []
@@ -14,6 +14,7 @@ dev = [
 
 [project.scripts]
 portfolio-os = "portfolio_os.cli:main"
+portfolio-report = "portfolio_os.portfolio_cli:main"
 
 [project.entry-points."portfolio_os.analyzers"]
 
