@@ -1,1 +1,0 @@
-Fixture security policy.
