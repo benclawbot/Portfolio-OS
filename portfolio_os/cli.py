@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.readme import ReadmeGenerator
 
@@ -26,15 +27,25 @@ def build_parser() -> argparse.ArgumentParser:
     analyze = subparsers.add_parser("analyze", help="Analyze a local repository checkout")
     analyze.add_argument("path", nargs="?", default=".")
     analyze.add_argument("--output", "-o", type=Path)
-    analyze.add_argument("--pretty", action="store_true", help="Print a concise human-readable summary")
+    analyze.add_argument("--pretty", action="store_true")
 
-    readme = subparsers.add_parser("readme", help="Generate an evidence-based README for a local checkout")
+    readme = subparsers.add_parser("readme", help="Generate an evidence-based README")
     readme.add_argument("path", nargs="?", default=".")
-    readme.add_argument("--output", "-o", type=Path, help="Write a candidate README to another path")
-    readme.add_argument("--write", action="store_true", help="Atomically replace README.md")
-    readme.add_argument("--check", action="store_true", help="Exit 2 when README.md differs from generated output")
-    readme.add_argument("--diff", action="store_true", help="Print a unified diff against README.md")
-    readme.add_argument("--no-preserve-hero", action="store_true", help="Do not preserve the existing leading hero banner")
+    readme.add_argument("--output", "-o", type=Path)
+    readme.add_argument("--write", action="store_true")
+    readme.add_argument("--check", action="store_true")
+    readme.add_argument("--diff", action="store_true")
+    readme.add_argument("--no-preserve-hero", action="store_true")
+
+    dna = subparsers.add_parser("dna", help="Generate repository DNA")
+    dna.add_argument("path", nargs="?", default=".")
+    dna.add_argument("--output", "-o", type=Path)
+
+    compare = subparsers.add_parser("compare", help="Compare two repository checkouts")
+    compare.add_argument("left")
+    compare.add_argument("right")
+    compare.add_argument("--output", "-o", type=Path)
+    compare.add_argument("--pretty", action="store_true")
     return parser
 
 
@@ -57,16 +68,8 @@ def handle_readme(args: argparse.Namespace) -> int:
     generated = generator.generate(root, analysis)
     current_path = root / "README.md"
     current = current_path.read_text(encoding="utf-8", errors="replace") if current_path.exists() else ""
-
     if args.diff:
-        sys.stdout.writelines(
-            difflib.unified_diff(
-                current.splitlines(keepends=True),
-                generated.splitlines(keepends=True),
-                fromfile=str(current_path),
-                tofile=f"{current_path} (generated)",
-            )
-        )
+        sys.stdout.writelines(difflib.unified_diff(current.splitlines(keepends=True), generated.splitlines(keepends=True), fromfile=str(current_path), tofile=f"{current_path} (generated)"))
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(generated, encoding="utf-8", newline="\n")
@@ -74,8 +77,38 @@ def handle_readme(args: argparse.Namespace) -> int:
         generator.write(root, generated)
     if not any((args.diff, args.output, args.write, args.check)):
         print(generated, end="")
-    if args.check and current != generated:
-        return 2
+    return 2 if args.check and current != generated else 0
+
+
+def handle_dna(args: argparse.Namespace) -> int:
+    analysis = AnalysisEngine().analyze(Path(args.path))
+    data = DNABuilder().build(analysis).to_dict()
+    text = json.dumps(data, indent=2) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+    else:
+        print(text, end="")
+    return 0
+
+
+def handle_compare(args: argparse.Namespace) -> int:
+    engine = AnalysisEngine()
+    builder = DNABuilder()
+    left = builder.build(engine.analyze(Path(args.left)))
+    right = builder.build(engine.analyze(Path(args.right)))
+    result = SimilarityEngine().compare(left, right)
+    data = result.to_dict()
+    text = json.dumps(data, indent=2) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+    if args.pretty:
+        print(f"{result.left} vs {result.right}: {result.score:.1%} ({result.classification})")
+        for reason in result.reasons:
+            print(f"- {reason}")
+    elif not args.output:
+        print(text, end="")
     return 0
 
 
@@ -86,13 +119,14 @@ def main() -> int:
         data = analysis.to_dict()
         if args.output:
             analysis.write_json(args.output)
-        if args.pretty:
-            print_summary(data)
-        else:
-            print(json.dumps(data, indent=2))
+        print_summary(data) if args.pretty else print(json.dumps(data, indent=2))
         return 1 if data["summary"]["error_count"] else 0
     if args.command == "readme":
         return handle_readme(args)
+    if args.command == "dna":
+        return handle_dna(args)
+    if args.command == "compare":
+        return handle_compare(args)
 
     config = load_config(Path(args.config))
     repositories = config["repositories"]
