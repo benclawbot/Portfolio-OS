@@ -10,6 +10,7 @@ def write(path, content):
 
 def seed_complete(tmp_path):
     write(tmp_path / "sync-state.json", "{}")
+    write(tmp_path / "github" / "index.json", "{}")
     write(tmp_path / "portfolio" / "portfolio-summary.json", "{}")
     write(tmp_path / "portfolio" / "portfolio-report.md", "# report")
     write(tmp_path / "portfolio" / "portfolio-graph.json", "{}")
@@ -27,6 +28,7 @@ def test_complete_workspace_passes_and_writes_manifest(tmp_path):
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == 1
     assert manifest["artifacts"]["sync_state"]["sha256"]
+    assert manifest["artifacts"]["github_index"]["sha256"]
 
 
 def test_missing_required_artifact_fails(tmp_path):
@@ -50,3 +52,11 @@ def test_repair_plan_maps_missing_artifacts_to_stages(tmp_path):
     (tmp_path / "dashboard" / "index.html").unlink()
     plan = WorkspaceValidator(tmp_path).repair_plan()
     assert plan["stages"] == ["report", "dashboard"]
+
+
+def test_repair_plan_maps_missing_optional_index_to_index_stage(tmp_path):
+    seed_complete(tmp_path)
+    (tmp_path / "github" / "index.json").unlink()
+    plan = WorkspaceValidator(tmp_path).repair_plan()
+    assert plan["status"] == "passed"
+    assert plan["stages"] == ["github-index"]
