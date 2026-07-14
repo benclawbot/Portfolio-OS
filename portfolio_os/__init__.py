@@ -10,7 +10,7 @@ from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
 from portfolio_os.history import PortfolioHistory, SnapshotResult
-from portfolio_os.pipeline import PipelineResult, PipelineStageResult, PortfolioPipeline
+from portfolio_os.pipeline import PipelineResult, PipelineStageResult, PolicyGateError, PortfolioPipeline
 from portfolio_os.plugins import PluginRegistry
 from portfolio_os.policy import PolicyResult, PolicyViolation, PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuildResult, PortfolioBuilder
@@ -42,8 +42,9 @@ __all__ = [
     "PortfolioPipeline",
     "PipelineResult",
     "PipelineStageResult",
+    "PolicyGateError",
     "PortfolioPolicy",
     "PolicyResult",
     "PolicyViolation",
 ]
-__version__ = "0.13.0"
+__version__ = "0.14.0"
