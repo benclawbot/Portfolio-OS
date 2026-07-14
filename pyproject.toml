@@ -29,8 +29,9 @@ portfolio-workspace = "portfolio_os.workspace_cli:main"
 
 [project.entry-points."portfolio_os.analyzers"]
 
-[tool.setuptools]
-packages = ["portfolio_os"]
+[tool.setuptools.packages.find]
+include = ["portfolio_os", "portfolio_os.*"]
+exclude = ["tests", "tests.*", "docs", "docs.*", "config", "config.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
