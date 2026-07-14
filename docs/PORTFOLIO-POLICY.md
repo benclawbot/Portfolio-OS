@@ -1,19 +1,16 @@
 # Portfolio health policies
 
-Portfolio OS can convert generated portfolio evidence into explicit CI gates.
+Portfolio OS converts generated portfolio evidence into explicit CI gates.
 
 ```bash
 portfolio-policy --pretty
 portfolio-policy --policy portfolio-policy.example.json --pretty
+portfolio-refresh --skip-sync --policy portfolio-policy.example.json --pretty
 ```
 
-The command reads the latest portfolio summary and, when available, trends and pipeline reports. It writes:
+The evaluator writes `<workspace>/policy/latest-policy.json`.
 
-```text
-<workspace>/policy/latest-policy.json
-```
-
-## Supported rules
+## Portfolio rules
 
 - `min_analysis_coverage`
 - `max_dirty_count`
@@ -24,23 +21,51 @@ The command reads the latest portfolio summary and, when available, trends and p
 - `min_history_snapshots`
 - `require_pipeline_completed`
 
-Each rule supports:
+## Repository-specific rules
+
+Policies may target repositories by exact `owner/name`:
+
+- `require_analysis`
+- `require_accessible`
+- `allow_dirty`
+- `min_test_files`
+- `max_findings`
+- `max_analysis_errors`
+
+```json
+{
+  "repositories": {
+    "benclawbot/example-project": {
+      "require_analysis": {"value": true, "level": "fail"},
+      "min_test_files": {"value": 1, "level": "warn"}
+    }
+  }
+}
+```
+
+A missing repository policy target is a fail-level violation because the requested governance target cannot be evaluated.
+
+## Rule schema
+
+Each rule accepts exactly:
 
 ```json
 {"value": 0, "level": "fail", "enabled": true}
 ```
 
-Levels are `fail` or `warn`. Warning violations are reported but do not fail the command. Any failing violation returns exit code `2`.
+Levels are `fail` or `warn`. Numeric rules require numeric values and boolean rules require booleans. Unknown sections, rules, or fields are rejected rather than ignored.
 
-## Default behavior
+Warning violations are reported but do not fail the command. Any fail-level violation returns exit code `2`.
 
-The built-in defaults are intentionally conservative: analyzer errors fail, while dirty repositories, inaccessible repositories, regressions, and insufficient history warn. Pipeline completion is not required unless explicitly enabled by policy.
+## Pipeline integration
 
-## CI usage
+Use `--enforce-policy` for built-in defaults, or `--policy` to automatically enable and enforce a supplied policy as the final refresh stage:
 
 ```bash
-portfolio-refresh --skip-sync --pretty
-portfolio-policy --policy portfolio-policy.example.json --pretty
+portfolio-refresh --skip-sync --enforce-policy --pretty
+portfolio-refresh --skip-sync --policy portfolio-policy.example.json --pretty
 ```
 
-Policy reports include the expected condition, actual value, level, message, and aggregate failure/warning counts. Policy evaluation never modifies synchronized repositories or source artifacts.
+The policy stage evaluates the current refresh as completed, avoiding dependence on a previous `latest-run.json`. A failed policy writes its policy report and marks the refresh pipeline failed.
+
+Policy evaluation never modifies synchronized repositories or source artifacts.
