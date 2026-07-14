@@ -24,3 +24,8 @@ jobs:
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
           python -m portfolio_os.cli compare tests/fixtures/sample_repo tests/fixtures/sample_repo --pretty
+      - name: Knowledge graph smoke test
+        run: |
+          python -m portfolio_os.cli graph-build tests/fixtures/sample_repo --output /tmp/portfolio-graph.json
+          python -m portfolio_os.cli graph-query /tmp/portfolio-graph.json repo:sample_repo
+          python -m portfolio_os.cli graph-path /tmp/portfolio-graph.json repo:sample_repo technology:languages:Python
