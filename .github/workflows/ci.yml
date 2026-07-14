@@ -22,11 +22,45 @@ jobs:
       - name: Compile
         run: python -m compileall -q portfolio_os
       - name: Lint correctness
-        run: python -m ruff check portfolio_os tests
+        id: lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m ruff check portfolio_os tests 2>&1 | tee ruff.txt
       - name: Type check
-        run: python -m pyright portfolio_os
+        id: types
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pyright portfolio_os 2>&1 | tee pyright.txt
       - name: Test with coverage
-        run: python -m pytest -q --cov=portfolio_os --cov-branch --cov-report=term-missing --cov-fail-under=90
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q --cov=portfolio_os --cov-branch --cov-report=term-missing --cov-fail-under=90 2>&1 | tee pytest.txt
+      - name: Upload quality diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-diagnostics
+          path: |
+            ruff.txt
+            pyright.txt
+            pytest.txt
+      - name: Enforce quality gates
+        if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TYPE_OUTCOME: ${{ steps.types.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          test "$LINT_OUTCOME" = success
+          test "$TYPE_OUTCOME" = success
+          test "$TEST_OUTCOME" = success
       - name: Build distributions
         run: python -m build
       - name: Console entry points
