@@ -1,6 +1,6 @@
 [project]
 name = "portfolio-os"
-version = "0.11.0"
+version = "0.12.0"
 description = "Evidence-based GitHub portfolio governance and automation"
 requires-python = ">=3.11"
 dependencies = []
@@ -17,6 +17,7 @@ portfolio-os = "portfolio_os.cli:main"
 portfolio-report = "portfolio_os.portfolio_cli:main"
 portfolio-trends = "portfolio_os.trends_cli:main"
 portfolio-dashboard = "portfolio_os.dashboard_cli:main"
+portfolio-refresh = "portfolio_os.pipeline_cli:main"
 
 [project.entry-points."portfolio_os.analyzers"]
 
