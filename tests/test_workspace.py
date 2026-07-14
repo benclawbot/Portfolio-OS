@@ -14,11 +14,21 @@ def seed_complete(tmp_path):
     write(tmp_path / "portfolio" / "portfolio-summary.json", "{}")
     write(tmp_path / "portfolio" / "portfolio-report.md", "# report")
     write(tmp_path / "portfolio" / "portfolio-graph.json", "{}")
+    write(tmp_path / "lineage" / "repository-lineage.json", "{}")
+    write(tmp_path / "lineage" / "repository-lineage.md", "# lineage")
+    write(tmp_path / "reuse" / "duplicate-components.json", "{}")
+    write(tmp_path / "reuse" / "shared-library-recommendations.md", "# reuse")
+    write(tmp_path / "backlog" / "portfolio-backlog.json", "{}")
+    write(tmp_path / "backlog" / "portfolio-backlog.md", "# backlog")
     write(tmp_path / "history" / "latest.json", "{}")
     write(tmp_path / "history" / "latest-delta.json", "{}")
     write(tmp_path / "trends" / "portfolio-trends.json", "{}")
+    write(tmp_path / "documents" / "CHANGELOG.generated.md", "# changelog")
+    write(tmp_path / "documents" / "RELEASE-NOTES.generated.md", "# notes")
+    write(tmp_path / "documents" / "ARCHITECTURE.generated.md", "# architecture")
     write(tmp_path / "dashboard" / "index.html", "<html></html>")
     write(tmp_path / "dashboard" / "dashboard-data.json", "{}")
+    write(tmp_path / "artifacts" / "catalog.json", "{}")
 
 
 def test_complete_workspace_passes_and_writes_manifest(tmp_path):
@@ -29,6 +39,7 @@ def test_complete_workspace_passes_and_writes_manifest(tmp_path):
     assert manifest["schema_version"] == 1
     assert manifest["artifacts"]["sync_state"]["sha256"]
     assert manifest["artifacts"]["github_index"]["sha256"]
+    assert manifest["artifacts"]["artifact_catalog"]["sha256"]
 
 
 def test_missing_required_artifact_fails(tmp_path):
@@ -49,9 +60,10 @@ def test_invalid_json_fails(tmp_path):
 def test_repair_plan_maps_missing_artifacts_to_stages(tmp_path):
     seed_complete(tmp_path)
     (tmp_path / "portfolio" / "portfolio-summary.json").unlink()
+    (tmp_path / "reuse" / "duplicate-components.json").unlink()
     (tmp_path / "dashboard" / "index.html").unlink()
     plan = WorkspaceValidator(tmp_path).repair_plan()
-    assert plan["stages"] == ["report", "dashboard"]
+    assert plan["stages"] == ["report", "reuse", "dashboard"]
 
 
 def test_repair_plan_maps_missing_optional_index_to_index_stage(tmp_path):
