@@ -32,6 +32,12 @@ jobs:
           python -m portfolio_os.cli sync --help
           python -m portfolio_os.cli workspace-status --help
           python -m portfolio_os.cli workspace-status --workspace /tmp/portfolio-os-empty --pretty
+      - name: Portfolio reporting smoke test
+        run: |
+          portfolio-report --workspace /tmp/portfolio-os-empty --pretty
+          test -f /tmp/portfolio-os-empty/portfolio/portfolio-summary.json
+          test -f /tmp/portfolio-os-empty/portfolio/portfolio-report.md
+          test -f /tmp/portfolio-os-empty/portfolio/portfolio-graph.json
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
