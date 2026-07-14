@@ -8,6 +8,7 @@ from pathlib import Path
 
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
+from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
 from portfolio_os.readme import ReadmeGenerator
 
 
@@ -19,17 +20,16 @@ def load_config(path: Path) -> dict:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Portfolio OS")
     subparsers = parser.add_subparsers(dest="command", required=True)
-
     for command in ("inventory", "decisions", "archive-candidates"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--config", default="config/portfolio.json")
 
-    analyze = subparsers.add_parser("analyze", help="Analyze a local repository checkout")
+    analyze = subparsers.add_parser("analyze")
     analyze.add_argument("path", nargs="?", default=".")
     analyze.add_argument("--output", "-o", type=Path)
     analyze.add_argument("--pretty", action="store_true")
 
-    readme = subparsers.add_parser("readme", help="Generate an evidence-based README")
+    readme = subparsers.add_parser("readme")
     readme.add_argument("path", nargs="?", default=".")
     readme.add_argument("--output", "-o", type=Path)
     readme.add_argument("--write", action="store_true")
@@ -37,15 +37,33 @@ def build_parser() -> argparse.ArgumentParser:
     readme.add_argument("--diff", action="store_true")
     readme.add_argument("--no-preserve-hero", action="store_true")
 
-    dna = subparsers.add_parser("dna", help="Generate repository DNA")
+    dna = subparsers.add_parser("dna")
     dna.add_argument("path", nargs="?", default=".")
     dna.add_argument("--output", "-o", type=Path)
 
-    compare = subparsers.add_parser("compare", help="Compare two repository checkouts")
+    compare = subparsers.add_parser("compare")
     compare.add_argument("left")
     compare.add_argument("right")
     compare.add_argument("--output", "-o", type=Path)
     compare.add_argument("--pretty", action="store_true")
+
+    graph_build = subparsers.add_parser("graph-build", help="Build a graph from local repository checkouts")
+    graph_build.add_argument("paths", nargs="+")
+    graph_build.add_argument("--output", "-o", type=Path, default=Path("reports/latest/portfolio-graph.json"))
+    graph_build.add_argument("--threshold", type=float, default=0.55)
+
+    graph_query = subparsers.add_parser("graph-query", help="Query a saved portfolio graph")
+    graph_query.add_argument("graph", type=Path)
+    graph_query.add_argument("node")
+    graph_query.add_argument("--incoming", action="store_true")
+    graph_query.add_argument("--relation")
+    graph_query.add_argument("--impact", action="store_true")
+    graph_query.add_argument("--max-depth", type=int, default=5)
+
+    graph_path = subparsers.add_parser("graph-path", help="Find a relationship path")
+    graph_path.add_argument("graph", type=Path)
+    graph_path.add_argument("source")
+    graph_path.add_argument("target")
     return parser
 
 
@@ -81,8 +99,7 @@ def handle_readme(args: argparse.Namespace) -> int:
 
 
 def handle_dna(args: argparse.Namespace) -> int:
-    analysis = AnalysisEngine().analyze(Path(args.path))
-    data = DNABuilder().build(analysis).to_dict()
+    data = DNABuilder().build(AnalysisEngine().analyze(Path(args.path))).to_dict()
     text = json.dumps(data, indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -95,11 +112,8 @@ def handle_dna(args: argparse.Namespace) -> int:
 def handle_compare(args: argparse.Namespace) -> int:
     engine = AnalysisEngine()
     builder = DNABuilder()
-    left = builder.build(engine.analyze(Path(args.left)))
-    right = builder.build(engine.analyze(Path(args.right)))
-    result = SimilarityEngine().compare(left, right)
-    data = result.to_dict()
-    text = json.dumps(data, indent=2) + "\n"
+    result = SimilarityEngine().compare(builder.build(engine.analyze(Path(args.left))), builder.build(engine.analyze(Path(args.right))))
+    text = json.dumps(result.to_dict(), indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text, encoding="utf-8")
@@ -112,6 +126,17 @@ def handle_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_graph_build(args: argparse.Namespace) -> int:
+    graph = KnowledgeGraph()
+    builder = GraphBuilder()
+    for path in args.paths:
+        builder.add_repository(graph, Path(path))
+    builder.infer_repository_relationships(graph, args.threshold)
+    GraphStore().save(graph, args.output)
+    print(json.dumps(graph.to_dict()["summary"], indent=2))
+    return 0
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.command == "analyze":
@@ -121,21 +146,26 @@ def main() -> int:
             analysis.write_json(args.output)
         print_summary(data) if args.pretty else print(json.dumps(data, indent=2))
         return 1 if data["summary"]["error_count"] else 0
-    if args.command == "readme":
-        return handle_readme(args)
-    if args.command == "dna":
-        return handle_dna(args)
-    if args.command == "compare":
-        return handle_compare(args)
+    if args.command == "readme": return handle_readme(args)
+    if args.command == "dna": return handle_dna(args)
+    if args.command == "compare": return handle_compare(args)
+    if args.command == "graph-build": return handle_graph_build(args)
+    if args.command in {"graph-query", "graph-path"}:
+        graph = GraphStore().load(args.graph)
+        query = GraphQuery(graph)
+        if args.command == "graph-path":
+            print(json.dumps(query.path(args.source, args.target), indent=2))
+        elif args.impact:
+            print(json.dumps(query.impact(args.node, args.max_depth), indent=2))
+        else:
+            print(json.dumps([edge.__dict__ for edge in query.neighbors(args.node, args.relation, args.incoming)], indent=2))
+        return 0
 
     config = load_config(Path(args.config))
     repositories = config["repositories"]
-    if args.command == "inventory":
-        print(json.dumps(repositories, indent=2))
-    elif args.command == "archive-candidates":
-        print("\n".join(repo["name"] for repo in repositories if "archive" in repo["classification"]))
-    else:
-        print(json.dumps({key: value for key, value in config.items() if key != "repositories"}, indent=2))
+    if args.command == "inventory": print(json.dumps(repositories, indent=2))
+    elif args.command == "archive-candidates": print("\n".join(repo["name"] for repo in repositories if "archive" in repo["classification"]))
+    else: print(json.dumps({key: value for key, value in config.items() if key != "repositories"}, indent=2))
     return 0
 
 
