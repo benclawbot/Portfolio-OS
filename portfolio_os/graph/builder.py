@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 
-from .models import GraphEdge, GraphNode, KnowledgeGraph
+from .models import GraphEdge, GraphNode, KnowledgeGraph, RelationType
 
 
 class GraphBuilder:
@@ -34,12 +35,12 @@ class GraphBuilder:
                 },
             )
         )
-        for dimension_name, values in dna.dimensions.items():
+        for dimension_name, values in dna.features.to_dict().items():
             for value in values:
                 node_type = "capability" if dimension_name == "capabilities" else "technology"
                 node_id = f"{node_type}:{dimension_name}:{value}"
                 graph.add_node(GraphNode(node_id, node_type, value, {"dimension": dimension_name}))
-                relation = "implements" if node_type == "capability" else "uses"
+                relation: RelationType = "implements" if node_type == "capability" else "uses"
                 graph.add_edge(GraphEdge(repository_id, node_id, relation, 1.0, (f"DNA:{dimension_name}",)))
         return repository_id
 
@@ -54,8 +55,9 @@ class GraphBuilder:
                 comparison = self.similarity_engine.compare(left_dna, right_dna)
                 if comparison.score < threshold:
                     continue
-                relation = "duplicates" if comparison.score >= 0.85 else "related-to"
+                relation: RelationType = "duplicates" if comparison.score >= 0.85 else "related-to"
                 evidence = tuple(comparison.reasons[:5])
+                dimension_scores = {dimension.name: dimension.score for dimension in comparison.dimensions}
                 graph.add_edge(
                     GraphEdge(
                         left.id,
@@ -63,7 +65,7 @@ class GraphBuilder:
                         relation,
                         comparison.score,
                         evidence,
-                        {"dimension_scores": comparison.dimension_scores},
+                        {"dimension_scores": dimension_scores},
                     )
                 )
 
@@ -80,4 +82,13 @@ class GraphBuilder:
         for node_id, label in ((source_id, source.removeprefix("repo:")), (target_id, target.removeprefix("repo:"))):
             if node_id not in graph.nodes:
                 graph.add_node(GraphNode(node_id, "repository", label, {"declared_only": True}))
-        graph.add_edge(GraphEdge(source_id, target_id, relation, 1.0, (evidence,), {"source": "decision"}))
+        graph.add_edge(
+            GraphEdge(
+                source_id,
+                target_id,
+                cast(RelationType, relation),
+                1.0,
+                (evidence,),
+                {"source": "decision"},
+            )
+        )
