@@ -41,6 +41,13 @@ jobs:
           test -f /tmp/portfolio-os-empty/history/latest.json
           test -f /tmp/portfolio-os-empty/history/latest-delta.json
           test "$(find /tmp/portfolio-os-empty/history/snapshots -type f | wc -l)" -eq 1
+      - name: Portfolio trends smoke test
+        run: |
+          portfolio-trends --workspace /tmp/portfolio-os-empty --pretty
+          test -f /tmp/portfolio-os-empty/trends/portfolio-trends.json
+          test -f /tmp/portfolio-os-empty/trends/portfolio-trends.md
+          portfolio-trends --workspace /tmp/portfolio-os-empty --retain 1 --pretty
+          test "$(find /tmp/portfolio-os-empty/history/snapshots -type f | wc -l)" -eq 1
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
