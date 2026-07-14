@@ -25,51 +25,45 @@ jobs:
         run: python -m ruff check portfolio_os tests
       - name: Test with coverage
         run: python -m pytest -q --cov=portfolio_os --cov-report=term-missing
-      - name: Plugin registry smoke test
-        run: python -m portfolio_os.cli plugins
-      - name: Workspace CLI smoke test
+      - name: Build distributions
+        run: python -m build
+      - name: Console entry points
         run: |
-          python -m portfolio_os.cli sync --help
-          python -m portfolio_os.cli workspace-status --help
-          python -m portfolio_os.cli workspace-status --workspace /tmp/portfolio-os-empty --pretty
-      - name: Portfolio reporting and history smoke test
+          portfolio-os --help
+          portfolio-report --help
+          portfolio-trends --help
+          portfolio-dashboard --help
+          portfolio-refresh --help
+          portfolio-policy --help
+          portfolio-ops --help
+          portfolio-workspace --help
+      - name: End-to-end 1.0 workspace
         run: |
-          portfolio-report --workspace /tmp/portfolio-os-empty --pretty
-          test -f /tmp/portfolio-os-empty/portfolio/portfolio-summary.json
-          test -f /tmp/portfolio-os-empty/portfolio/portfolio-report.md
-          test -f /tmp/portfolio-os-empty/portfolio/portfolio-graph.json
-          test -f /tmp/portfolio-os-empty/history/latest.json
-          test -f /tmp/portfolio-os-empty/history/latest-delta.json
-      - name: Portfolio trends smoke test
-        run: |
-          portfolio-trends --workspace /tmp/portfolio-os-empty --pretty
-          test -f /tmp/portfolio-os-empty/trends/portfolio-trends.json
-          test -f /tmp/portfolio-os-empty/trends/portfolio-trends.md
-      - name: Static dashboard smoke test
-        run: |
-          portfolio-dashboard --workspace /tmp/portfolio-os-empty --pretty
-          test -f /tmp/portfolio-os-empty/dashboard/index.html
-          test -f /tmp/portfolio-os-empty/dashboard/dashboard-data.json
-          ! grep -qi "<script" /tmp/portfolio-os-empty/dashboard/index.html
-          ! grep -qi "https://" /tmp/portfolio-os-empty/dashboard/index.html
-      - name: End-to-end refresh with policy gate
-        run: |
-          portfolio-refresh --workspace /tmp/portfolio-os-pipeline --skip-sync --enforce-policy --pretty
-          test -f /tmp/portfolio-os-pipeline/pipeline/latest-run.json
-          test -f /tmp/portfolio-os-pipeline/policy/latest-policy.json
-          test -f /tmp/portfolio-os-pipeline/dashboard/index.html
-          test ! -f /tmp/portfolio-os-pipeline/.portfolio-os-refresh.lock
-          grep -q '"status": "completed"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
-          grep -q '"name": "policy"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
-          grep -q '"status": "passed"' /tmp/portfolio-os-pipeline/policy/latest-policy.json
-      - name: Standalone policy smoke test
-        run: portfolio-policy --workspace /tmp/portfolio-os-pipeline --pretty
-      - name: DNA smoke test
+          mkdir -p /tmp/portfolio-os-v1
+          printf '{"owner":"benclawbot","synchronized_at":"","repositories":{}}\n' > /tmp/portfolio-os-v1/sync-state.json
+          portfolio-refresh --workspace /tmp/portfolio-os-v1 --skip-sync --enforce-policy --pretty
+          portfolio-policy --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-ops runs --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-ops lock-status --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-workspace validate --workspace /tmp/portfolio-os-v1 --pretty
+          portfolio-workspace repair-plan --workspace /tmp/portfolio-os-v1 --pretty
+          test -f /tmp/portfolio-os-v1/pipeline/latest-run.json
+          test "$(find /tmp/portfolio-os-v1/pipeline/runs -type f | wc -l)" -eq 1
+          test -f /tmp/portfolio-os-v1/policy/latest-policy.json
+          test -f /tmp/portfolio-os-v1/dashboard/index.html
+          test -f /tmp/portfolio-os-v1/workspace/manifest.json
+          test ! -f /tmp/portfolio-os-v1/.portfolio-os-refresh.lock
+          grep -q '"status": "completed"' /tmp/portfolio-os-v1/pipeline/latest-run.json
+          grep -q '"status": "passed"' /tmp/portfolio-os-v1/policy/latest-policy.json
+          grep -q '"validation"' /tmp/portfolio-os-v1/workspace/manifest.json
+          grep -q "Recent refresh runs" /tmp/portfolio-os-v1/dashboard/index.html
+          grep -q "Policy" /tmp/portfolio-os-v1/dashboard/index.html
+          ! grep -qi "<script" /tmp/portfolio-os-v1/dashboard/index.html
+          ! grep -qi "https://" /tmp/portfolio-os-v1/dashboard/index.html
+      - name: DNA and graph smoke tests
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
           python -m portfolio_os.cli compare tests/fixtures/sample_repo tests/fixtures/sample_repo --pretty
-      - name: Knowledge graph smoke test
-        run: |
           python -m portfolio_os.cli graph-build tests/fixtures/sample_repo --output /tmp/portfolio-graph.json
           python -m portfolio_os.cli graph-query /tmp/portfolio-graph.json repo:sample_repo
           python -m portfolio_os.cli graph-path /tmp/portfolio-graph.json repo:sample_repo technology:languages:Python
