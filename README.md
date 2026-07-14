@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, generates an offline static dashboard, and refreshes the complete system through one locked pipeline. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, generates an offline static dashboard, refreshes the complete system through one locked pipeline, and enforces explicit portfolio health policies. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -119,6 +119,17 @@ portfolio-refresh --skip-sync --pretty
 
 The refresh pipeline uses an exclusive workspace lock, records per-stage status and duration, blocks dependent stages after failure by default, and writes a durable run report to `<workspace>/pipeline/latest-run.json`. Best-effort continuation requires explicit `--continue-on-error`. See [`docs/REFRESH-PIPELINE.md`](docs/REFRESH-PIPELINE.md).
 
+## Portfolio health policies
+
+Portfolio OS `0.13.0` evaluates generated evidence against explicit fail and warning thresholds.
+
+```bash
+portfolio-policy --pretty
+portfolio-policy --policy portfolio-policy.example.json --pretty
+```
+
+Supported gates include analysis coverage, dirty and inaccessible repositories, analyzer errors, finding totals, regression count, history depth, and pipeline completion. Failed rules return exit code `2`; warnings remain visible without failing the command. See [`docs/PORTFOLIO-POLICY.md`](docs/PORTFOLIO-POLICY.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -165,5 +176,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - Snapshot deletion requires an explicit retention apply flag and always preserves at least one snapshot.
 - Dashboard generation reads derived artifacts and writes only static output files.
 - Concurrent refreshes are rejected through an exclusive workspace lock.
+- Policy evaluation reads generated evidence and writes only a derived policy report.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
