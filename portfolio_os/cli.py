@@ -13,6 +13,7 @@ from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGr
 from portfolio_os.logging import configure_logging
 from portfolio_os.plugins import PluginRegistry
 from portfolio_os.readme import ReadmeGenerator
+from portfolio_os.sync import GitHubAPIClient, SubprocessGitClient, WorkspaceSynchronizer, load_state
 
 
 def load_inventory_config(path: Path) -> dict:
@@ -29,6 +30,16 @@ def build_parser() -> argparse.ArgumentParser:
     for command in ("inventory", "decisions", "archive-candidates"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--config", default="config/portfolio.json")
+
+    sync = subparsers.add_parser("sync", help="Synchronize the managed GitHub workspace")
+    sync.add_argument("--workspace", type=Path, help="Override the configured workspace")
+    sync.add_argument("--owner", help="Override the configured GitHub owner")
+    sync.add_argument("--no-analyze", action="store_true", help="Skip changed-repository analysis")
+    sync.add_argument("--pretty", action="store_true", help="Print a concise human-readable summary")
+
+    status = subparsers.add_parser("workspace-status", help="Read the persisted synchronization state")
+    status.add_argument("--workspace", type=Path, help="Override the configured workspace")
+    status.add_argument("--pretty", action="store_true", help="Print a concise human-readable summary")
 
     analyze = subparsers.add_parser("analyze")
     analyze.add_argument("path", nargs="?", default=".")
@@ -88,8 +99,53 @@ def print_summary(data: dict) -> None:
         print(f"- [{finding['severity'].upper()}] {finding['title']}")
 
 
+def print_sync_summary(data: dict) -> None:
+    summary = data["summary"]
+    print(f"Repositories: {summary['repository_count']}")
+    print(f"Analyzed: {summary['analyzed_count']} | Dirty: {summary['dirty_count']}")
+    for status, count in sorted(summary["status_counts"].items()):
+        print(f"- {status}: {count}")
+
+
 def make_engine(config: PortfolioConfig, *, discover_plugins: bool = False) -> AnalysisEngine:
     return AnalysisEngine(config=config, discover_plugins=discover_plugins)
+
+
+def handle_sync(args: argparse.Namespace, config: PortfolioConfig) -> int:
+    workspace = (args.workspace or config.workspace).expanduser()
+    owner = args.owner or config.github.owner
+    synchronizer = WorkspaceSynchronizer(
+        workspace=workspace,
+        owner=owner,
+        github=GitHubAPIClient(api_url=config.github.api_url),
+        git=SubprocessGitClient(),
+        analyzer=None if args.no_analyze else make_engine(config),
+    )
+    data = synchronizer.synchronize(analyze_changed=not args.no_analyze).to_dict()
+    print_sync_summary(data) if args.pretty else print(json.dumps(data, indent=2))
+    unsafe = {"dirty", "path-conflict", "remote-mismatch"}
+    return 2 if any(item["status"] in unsafe for item in data["repositories"]) else 0
+
+
+def handle_workspace_status(args: argparse.Namespace, config: PortfolioConfig) -> int:
+    workspace = (args.workspace or config.workspace).expanduser().resolve()
+    state = load_state(workspace / "sync-state.json")
+    repositories = tuple(state.repositories[key] for key in sorted(state.repositories))
+    counts: dict[str, int] = {}
+    for repository in repositories:
+        counts[repository.status] = counts.get(repository.status, 0) + 1
+    data = {
+        "state_path": str(workspace / "sync-state.json"),
+        "summary": {
+            "repository_count": len(repositories),
+            "analyzed_count": sum(item.analyzed for item in repositories),
+            "dirty_count": sum(item.dirty for item in repositories),
+            "status_counts": counts,
+        },
+        "repositories": [item.__dict__ for item in repositories],
+    }
+    print_sync_summary(data) if args.pretty else print(json.dumps(data, indent=2))
+    return 0
 
 
 def handle_readme(args: argparse.Namespace, config: PortfolioConfig) -> int:
@@ -100,7 +156,14 @@ def handle_readme(args: argparse.Namespace, config: PortfolioConfig) -> int:
     current_path = root / "README.md"
     current = current_path.read_text(encoding="utf-8", errors="replace") if current_path.exists() else ""
     if args.diff:
-        sys.stdout.writelines(difflib.unified_diff(current.splitlines(keepends=True), generated.splitlines(keepends=True), fromfile=str(current_path), tofile=f"{current_path} (generated)"))
+        sys.stdout.writelines(
+            difflib.unified_diff(
+                current.splitlines(keepends=True),
+                generated.splitlines(keepends=True),
+                fromfile=str(current_path),
+                tofile=f"{current_path} (generated)",
+            )
+        )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(generated, encoding="utf-8", newline="\n")
@@ -125,7 +188,9 @@ def handle_dna(args: argparse.Namespace, config: PortfolioConfig) -> int:
 def handle_compare(args: argparse.Namespace, config: PortfolioConfig) -> int:
     engine = make_engine(config)
     builder = DNABuilder()
-    result = SimilarityEngine().compare(builder.build(engine.analyze(Path(args.left))), builder.build(engine.analyze(Path(args.right))))
+    result = SimilarityEngine().compare(
+        builder.build(engine.analyze(Path(args.left))), builder.build(engine.analyze(Path(args.right)))
+    )
     text = json.dumps(result.to_dict(), indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +220,10 @@ def main() -> int:
     runtime_config = load_runtime_config(args.runtime_config)
     configure_logging(args.log_level or runtime_config.logging.level, args.json_logs or runtime_config.logging.json)
 
+    if args.command == "sync":
+        return handle_sync(args, runtime_config)
+    if args.command == "workspace-status":
+        return handle_workspace_status(args, runtime_config)
     if args.command == "plugins":
         registry = PluginRegistry()
         print(json.dumps([{"name": item.name, "source": item.source} for item in registry.descriptors()], indent=2))
@@ -166,10 +235,14 @@ def main() -> int:
             analysis.write_json(args.output)
         print_summary(data) if args.pretty else print(json.dumps(data, indent=2))
         return 1 if data["summary"]["error_count"] else 0
-    if args.command == "readme": return handle_readme(args, runtime_config)
-    if args.command == "dna": return handle_dna(args, runtime_config)
-    if args.command == "compare": return handle_compare(args, runtime_config)
-    if args.command == "graph-build": return handle_graph_build(args)
+    if args.command == "readme":
+        return handle_readme(args, runtime_config)
+    if args.command == "dna":
+        return handle_dna(args, runtime_config)
+    if args.command == "compare":
+        return handle_compare(args, runtime_config)
+    if args.command == "graph-build":
+        return handle_graph_build(args)
     if args.command in {"graph-query", "graph-path"}:
         graph = GraphStore().load(args.graph)
         query = GraphQuery(graph)
@@ -183,9 +256,12 @@ def main() -> int:
 
     inventory_config = load_inventory_config(Path(args.config))
     repositories = inventory_config["repositories"]
-    if args.command == "inventory": print(json.dumps(repositories, indent=2))
-    elif args.command == "archive-candidates": print("\n".join(repo["name"] for repo in repositories if "archive" in repo["classification"]))
-    else: print(json.dumps({key: value for key, value in inventory_config.items() if key != "repositories"}, indent=2))
+    if args.command == "inventory":
+        print(json.dumps(repositories, indent=2))
+    elif args.command == "archive-candidates":
+        print("\n".join(repo["name"] for repo in repositories if "archive" in repo["classification"]))
+    else:
+        print(json.dumps({key: value for key, value in inventory_config.items() if key != "repositories"}, indent=2))
     return 0
 
 
