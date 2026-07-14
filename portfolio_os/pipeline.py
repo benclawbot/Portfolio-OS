@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from portfolio_os.artifacts import ArtifactManager
 from portfolio_os.backlog import PortfolioBacklog
 from portfolio_os.dashboard import PortfolioDashboard
 from portfolio_os.generators import PortfolioDocumentGenerator
@@ -95,6 +96,7 @@ class PortfolioPipeline:
                 ("trends", self._trends_stage),
                 ("documents", self._documents_stage),
                 ("dashboard", self._dashboard_stage),
+                ("artifacts", self._artifacts_stage),
                 ("policy", self._policy_stage if self.enforce_policy else None),
             ]
             blocked = False
@@ -127,6 +129,7 @@ class PortfolioPipeline:
             self.operations.record_run(result.to_dict())
             if (self.workspace / "portfolio" / "portfolio-summary.json").exists():
                 PortfolioDashboard(self.workspace).build()
+                ArtifactManager(self.workspace).build_catalog()
             return result
 
     def _report_stage(self) -> dict[str, Any]:
@@ -165,6 +168,9 @@ class PortfolioPipeline:
     def _dashboard_stage(self) -> dict[str, Any]:
         dashboard = PortfolioDashboard(self.workspace).build()
         return {"html_path": str(dashboard.html_path), "data_path": str(dashboard.data_path)}
+
+    def _artifacts_stage(self) -> dict[str, Any]:
+        return ArtifactManager(self.workspace).build_catalog().to_dict()
 
     def _policy_stage(self) -> dict[str, Any]:
         result = PortfolioPolicy(self.workspace, self.policy_path).evaluate(pipeline_status="completed")
