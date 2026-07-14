@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, and safely synchronizes a managed local workspace. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, and produces portfolio-wide reports. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -62,6 +62,17 @@ python -m portfolio_os.cli workspace-status --pretty
 
 Missing repositories are cloned. Existing clean repositories are fetched and may advance only through a fast-forward merge on their checked-out default branch. Dirty trees, other branches, detached HEADs, archived repositories, origin mismatches, path conflicts, and removed or inaccessible repositories are reported without destructive changes. Only repositories with changed HEAD or relevant metadata are analyzed. See [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md).
 
+## Portfolio-wide reporting
+
+Portfolio OS `0.8.0` turns the synchronized workspace into deterministic portfolio artifacts:
+
+```bash
+portfolio-report --pretty
+portfolio-report --workspace ~/Portfolio-OS-workspace --output-dir reports/latest
+```
+
+The pipeline writes `portfolio-summary.json`, `portfolio-report.md`, and `portfolio-graph.json`. Reports include analysis coverage, languages, frameworks, findings, repository status, and explicit attention queues for dirty, inaccessible, archived, missing-analysis, and analyzer-error cases. See [`docs/PORTFOLIO-REPORTING.md`](docs/PORTFOLIO-REPORTING.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -103,5 +114,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - Analyzer plugins are read-only by contract unless a separate explicit execution workflow authorizes changes.
 - GitHub synchronization never resets, rebases, cleans, force-updates, deletes branches, or deletes local repositories.
 - Dirty working trees and non-default branches are preserved and reported.
+- Portfolio artifacts are rebuilt from synchronization state and cached analyzer evidence, not repository marketing claims.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
