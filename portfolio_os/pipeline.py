@@ -10,6 +10,7 @@ from typing import Any, Callable, Iterator
 
 from portfolio_os.dashboard import PortfolioDashboard
 from portfolio_os.history import PortfolioHistory
+from portfolio_os.policy import PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuilder
 from portfolio_os.trends import PortfolioTrends
 
@@ -46,6 +47,10 @@ class PipelineLockedError(RuntimeError):
     pass
 
 
+class PolicyGateError(RuntimeError):
+    pass
+
+
 class PortfolioPipeline:
     """Run the Portfolio OS refresh stages with locking and durable stage reporting."""
 
@@ -56,11 +61,15 @@ class PortfolioPipeline:
         sync_stage: Callable[[], dict[str, Any]] | None = None,
         similarity_threshold: float = 0.55,
         trend_limit: int | None = None,
+        policy_path: Path | None = None,
+        enforce_policy: bool = False,
     ) -> None:
         self.workspace = workspace.expanduser().resolve()
         self.sync_stage = sync_stage
         self.similarity_threshold = similarity_threshold
         self.trend_limit = trend_limit
+        self.policy_path = policy_path.expanduser().resolve() if policy_path else None
+        self.enforce_policy = enforce_policy
         self.lock_path = self.workspace / ".portfolio-os-refresh.lock"
         self.result_path = self.workspace / "pipeline" / "latest-run.json"
 
@@ -74,6 +83,7 @@ class PortfolioPipeline:
                 ("report", self._report_stage),
                 ("trends", self._trends_stage),
                 ("dashboard", self._dashboard_stage),
+                ("policy", self._policy_stage if self.enforce_policy else None),
             ]
             blocked = False
             for name, stage in configured:
@@ -88,7 +98,7 @@ class PortfolioPipeline:
                     output = stage()
                     duration = time.perf_counter() - stage_started
                     stages.append(PipelineStageResult(name, "completed", duration, output))
-                except Exception as error:  # stage boundary intentionally records any operational failure
+                except Exception as error:
                     duration = time.perf_counter() - stage_started
                     stages.append(PipelineStageResult(name, "failed", duration, {}, f"{type(error).__name__}: {error}"))
                     if not continue_on_error:
@@ -123,6 +133,12 @@ class PortfolioPipeline:
     def _dashboard_stage(self) -> dict[str, Any]:
         dashboard = PortfolioDashboard(self.workspace).build()
         return {"html_path": str(dashboard.html_path), "data_path": str(dashboard.data_path)}
+
+    def _policy_stage(self) -> dict[str, Any]:
+        result = PortfolioPolicy(self.workspace, self.policy_path).evaluate(pipeline_status="completed")
+        if result.status == "failed":
+            raise PolicyGateError(f"policy failed; report: {result.report_path}")
+        return result.to_dict()
 
     @contextmanager
     def _lock(self) -> Iterator[None]:
