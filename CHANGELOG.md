@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1.0
+
+Portfolio OS completes the original portfolio operating-system backlog with an evidence-driven prioritization loop and a service boundary suitable for future Medusa integration.
+
+### GitHub and intelligence
+
+- incremental branch, tag, release, issue, pull-request, status and check indexing;
+- explainable architecture, technical-debt, security and release-readiness scores;
+- exact cross-repository duplicate-component detection and shared-library recommendations;
+- explicit repository lineage, consolidation and migration relationships with impact indexes;
+- portfolio intelligence summaries and dashboard visibility.
+
+### Automation
+
+- deterministic, evidence-backed prioritized backlog with impact, effort, risk, confidence, acceptance criteria and verification plans;
+- generated portfolio changelog, release notes and architecture documentation;
+- expanded refresh pipeline covering lineage, reuse, backlog, documents, artifacts and telemetry;
+- named runtime configuration profiles with recursive inheritance.
+
+### API and operations
+
+- stable exported Python APIs for the new capabilities;
+- versioned localhost REST endpoints for health, durable jobs and artifact retrieval;
+- dependency-free filesystem job queue with pending, running, completed and failed states;
+- artifact catalog with deterministic IDs, content types, sizes and SHA-256 digests;
+- plan-first, explicitly confirmed retention for immutable snapshots and refresh records;
+- local-only operational telemetry with no network export or source-code collection.
+
+### Quality gates
+
+- enforced 90% branch-aware coverage threshold;
+- Pyright type checking in CI and release validation;
+- expanded Ruff correctness checks;
+- end-to-end generation and workspace validation for the complete artifact set.
+
 ## 1.0.0
 
 Portfolio OS reaches its first stable release with an end-to-end, evidence-based portfolio governance workflow.
