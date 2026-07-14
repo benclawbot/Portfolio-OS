@@ -56,6 +56,16 @@ jobs:
           grep -q "Portfolio OS" /tmp/portfolio-os-empty/dashboard/index.html
           ! grep -qi "<script" /tmp/portfolio-os-empty/dashboard/index.html
           ! grep -qi "https://" /tmp/portfolio-os-empty/dashboard/index.html
+      - name: End-to-end refresh smoke test
+        run: |
+          portfolio-refresh --workspace /tmp/portfolio-os-pipeline --skip-sync --pretty
+          test -f /tmp/portfolio-os-pipeline/pipeline/latest-run.json
+          test -f /tmp/portfolio-os-pipeline/portfolio/portfolio-summary.json
+          test -f /tmp/portfolio-os-pipeline/history/latest.json
+          test -f /tmp/portfolio-os-pipeline/trends/portfolio-trends.json
+          test -f /tmp/portfolio-os-pipeline/dashboard/index.html
+          test ! -f /tmp/portfolio-os-pipeline/.portfolio-os-refresh.lock
+          grep -q '"status": "completed"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
