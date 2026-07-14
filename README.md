@@ -2,11 +2,11 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, records portfolio decisions, and will orchestrate code-derived documentation and portfolio-wide improvements. Destructive actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, records portfolio decisions, and generates code-derived documentation. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
-The first production capability analyzes any local repository checkout and emits structured JSON covering:
+Analyze any local repository checkout and emit structured JSON covering:
 
 - repository structure and entry points,
 - languages and frameworks,
@@ -23,7 +23,27 @@ python -m portfolio_os.cli analyze /path/to/repository \
   --output reports/latest/repository.json
 ```
 
-See [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md) for the output contract and current limitations.
+See [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md).
+
+## Phase 2: evidence-based README generation
+
+Generate deterministic documentation from Phase 1 evidence while preserving the existing leading hero banner:
+
+```bash
+# Preview
+python -m portfolio_os.cli readme /path/to/repository
+
+# Review changes
+python -m portfolio_os.cli readme /path/to/repository --diff
+
+# Detect README drift in CI
+python -m portfolio_os.cli readme /path/to/repository --check
+
+# Replace README.md atomically
+python -m portfolio_os.cli readme /path/to/repository --write
+```
+
+Generation stops if an analyzer fails. Existing README body claims are not treated as implementation evidence. See [`docs/README-GENERATOR.md`](docs/README-GENERATOR.md).
 
 ## Governance commands
 
@@ -44,7 +64,8 @@ python -m portfolio_os.cli analyze tests/fixtures/sample_repo --pretty
 
 - Archive actions are recommendation-only.
 - Pull-request actions are analysis-only.
-- Existing README hero banners must be preserved during future regeneration.
-- Automated README changes will be based on source-code evidence.
+- Existing README hero banners are preserved during regeneration.
+- Automated README changes are based on source-code evidence.
+- README replacement requires explicit `--write`.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
