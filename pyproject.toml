@@ -30,6 +30,7 @@ portfolio-workspace = "portfolio_os.workspace_cli:main"
 portfolio-github-index = "portfolio_os.github_index_cli:main"
 portfolio-backlog = "portfolio_os.backlog_cli:main"
 portfolio-service = "portfolio_os.service_cli:main"
+portfolio-artifacts = "portfolio_os.artifacts_cli:main"
 
 [project.entry-points."portfolio_os.analyzers"]
 
@@ -44,6 +45,7 @@ addopts = "--strict-markers"
 [tool.coverage.run]
 branch = true
 source = ["portfolio_os"]
+omit = ["portfolio_os/*_cli.py"]
 
 [tool.coverage.report]
 fail_under = 90
