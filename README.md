@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, and generates an offline static dashboard. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, generates an offline static dashboard, and refreshes the complete system through one locked pipeline. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -108,6 +108,17 @@ portfolio-dashboard --workspace ~/Portfolio-OS-workspace --output-dir public
 
 The dashboard contains portfolio metrics, inline SVG trend visualization, languages, regression signals, attention queues, and repository status. It has no external scripts, fonts, trackers, network calls, or mock data. See [`docs/PORTFOLIO-DASHBOARD.md`](docs/PORTFOLIO-DASHBOARD.md).
 
+## End-to-end refresh pipeline
+
+Portfolio OS `0.12.0` runs synchronization, reporting, history, trends and dashboard generation through one command:
+
+```bash
+portfolio-refresh --pretty
+portfolio-refresh --skip-sync --pretty
+```
+
+The refresh pipeline uses an exclusive workspace lock, records per-stage status and duration, blocks dependent stages after failure by default, and writes a durable run report to `<workspace>/pipeline/latest-run.json`. Best-effort continuation requires explicit `--continue-on-error`. See [`docs/REFRESH-PIPELINE.md`](docs/REFRESH-PIPELINE.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -153,5 +164,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - Historical snapshots contain derived evidence only and never modify synchronized repositories.
 - Snapshot deletion requires an explicit retention apply flag and always preserves at least one snapshot.
 - Dashboard generation reads derived artifacts and writes only static output files.
+- Concurrent refreshes are rejected through an exclusive workspace lock.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
