@@ -2,7 +2,7 @@
 
 Private, evidence-based governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS 1.0 safely synchronizes repositories, analyzes implementation evidence, generates documentation, compares repository DNA, builds a knowledge graph, tracks portfolio history and trends, renders an offline dashboard, enforces health policies, records refresh runs, diagnoses locks, and validates persisted workspace artifacts.
+Portfolio OS 1.0 safely synchronizes repositories, indexes GitHub metadata, analyzes implementation evidence, generates documentation, compares repository DNA, builds a knowledge graph, tracks portfolio history and trends, renders an offline dashboard, enforces health policies, records refresh runs, diagnoses locks, and validates persisted workspace artifacts.
 
 ## Primary workflow
 
@@ -15,11 +15,12 @@ portfolio-workspace validate --pretty
 The refresh pipeline runs:
 
 1. safe GitHub synchronization and changed-repository analysis;
-2. portfolio report and knowledge graph generation;
-3. immutable history snapshot and delta generation;
-4. multi-period trend analysis;
-5. offline dashboard generation;
-6. optional policy enforcement.
+2. incremental branch, tag, release, issue, pull-request, status and check indexing;
+3. portfolio report and knowledge graph generation;
+4. immutable history snapshot and delta generation;
+5. multi-period trend analysis;
+6. offline dashboard generation;
+7. optional policy enforcement.
 
 Every run is protected by an exclusive workspace lock and recorded under `<workspace>/pipeline/runs/`.
 
@@ -27,6 +28,7 @@ Every run is protected by an exclusive workspace lock and recorded under `<works
 
 ```bash
 portfolio-os --help
+portfolio-github-index --pretty
 portfolio-report --pretty
 portfolio-trends --pretty
 portfolio-dashboard --pretty
@@ -64,11 +66,26 @@ Portfolio OS never automatically:
 
 Dirty trees, detached HEADs, other branches, archived repositories, origin mismatches, path conflicts, and inaccessible repositories are preserved and reported.
 
+## GitHub metadata index
+
+Each refresh writes a portfolio manifest to `<workspace>/github/index.json` and one normalized artifact per repository under `<workspace>/github/repositories/`.
+
+Indexed data includes:
+
+- branches and protection state;
+- tags and releases;
+- issues and labels;
+- pull requests and branch relationships;
+- combined commit status and check runs for the default-branch head.
+
+The index fingerprint uses repository identity, default branch, head SHA, update timestamp, archive state and accessibility. Unchanged repository artifacts are reused. Use `portfolio-github-index --force` or `portfolio-refresh --force-github-index` for a complete rebuild. Indexing never changes managed checkouts.
+
 ## Reports and dashboard
 
 Derived artifacts include:
 
 ```text
+github/        normalized GitHub metadata and incremental index manifest
 portfolio/     summary, Markdown report, knowledge graph
 history/       immutable snapshots and latest delta
 trends/        timelines, net changes, regressions, repository activity
@@ -106,11 +123,12 @@ Stale-lock cleanup is explicit and refuses to remove a lock that has not met the
 python -m pip install -e ".[dev]"
 python -m compileall -q portfolio_os
 python -m ruff check portfolio_os tests
-python -m pytest -q --cov=portfolio_os --cov-report=term-missing
+python -m pyright portfolio_os
+python -m pytest -q --cov=portfolio_os --cov-branch --cov-report=term-missing --cov-fail-under=90
 python -m build
 ```
 
-Stable releases are produced by the GitHub Actions **Release** workflow. It verifies the version, reruns compilation, linting and tests, builds and reinstalls the wheel, generates SHA-256 checksums, creates an annotated tag, and publishes the GitHub Release. See [`docs/RELEASING.md`](docs/RELEASING.md).
+Stable releases are produced by the GitHub Actions **Release** workflow. It verifies the version, reruns compilation, linting, type checking and tests, builds and reinstalls the wheel, generates SHA-256 checksums, creates an annotated tag, and publishes the GitHub Release. See [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Documentation
 
