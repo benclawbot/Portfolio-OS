@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, and tracks portfolio changes over time. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, and identifies multi-period trends. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -84,6 +84,19 @@ portfolio-report --no-history
 
 History records stable repository additions, removals, renames and metadata changes, HEAD movement, analysis metric changes, and portfolio summary deltas. Snapshot fingerprints are deterministic and history artifacts are persisted atomically. See [`docs/PORTFOLIO-HISTORY.md`](docs/PORTFOLIO-HISTORY.md).
 
+## Portfolio trends and retention
+
+Portfolio OS `0.10.0` analyzes all retained snapshots to produce multi-period trends and regression signals.
+
+```bash
+portfolio-trends --pretty
+portfolio-trends --limit 30
+portfolio-trends --retain 90 --pretty
+portfolio-trends --retain 90 --apply-retention --pretty
+```
+
+Trend artifacts include metric timelines, net change, repository activity, and evidence-based regression signals. Snapshot retention is preview-only unless `--apply-retention` is supplied. See [`docs/PORTFOLIO-TRENDS.md`](docs/PORTFOLIO-TRENDS.md).
+
 ## Production foundation
 
 Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
@@ -127,5 +140,6 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - Dirty working trees and non-default branches are preserved and reported.
 - Portfolio artifacts are rebuilt from synchronization state and cached analyzer evidence, not repository marketing claims.
 - Historical snapshots contain derived evidence only and never modify synchronized repositories.
+- Snapshot deletion requires an explicit retention apply flag and always preserves at least one snapshot.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
