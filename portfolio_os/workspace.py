@@ -46,13 +46,21 @@ class WorkspaceValidator:
         "portfolio_summary": ("portfolio/portfolio-summary.json", True),
         "portfolio_report": ("portfolio/portfolio-report.md", True),
         "portfolio_graph": ("portfolio/portfolio-graph.json", True),
+        "lineage_json": ("lineage/repository-lineage.json", True),
+        "lineage_markdown": ("lineage/repository-lineage.md", True),
+        "reuse_json": ("reuse/duplicate-components.json", True),
+        "reuse_markdown": ("reuse/shared-library-recommendations.md", True),
         "backlog_json": ("backlog/portfolio-backlog.json", True),
         "backlog_markdown": ("backlog/portfolio-backlog.md", True),
         "history_latest": ("history/latest.json", True),
         "history_delta": ("history/latest-delta.json", True),
         "trends": ("trends/portfolio-trends.json", True),
+        "generated_changelog": ("documents/CHANGELOG.generated.md", True),
+        "generated_release_notes": ("documents/RELEASE-NOTES.generated.md", True),
+        "generated_architecture": ("documents/ARCHITECTURE.generated.md", True),
         "dashboard": ("dashboard/index.html", True),
         "dashboard_data": ("dashboard/dashboard-data.json", True),
+        "artifact_catalog": ("artifacts/catalog.json", True),
         "pipeline_latest": ("pipeline/latest-run.json", False),
         "policy_latest": ("policy/latest-policy.json", False),
     }
@@ -104,12 +112,20 @@ class WorkspaceValidator:
             stages.append("github-index")
         if failed & {"portfolio_summary", "portfolio_report", "portfolio_graph", "history_latest", "history_delta"}:
             stages.append("report")
+        if failed & {"lineage_json", "lineage_markdown"}:
+            stages.append("lineage")
+        if failed & {"reuse_json", "reuse_markdown"}:
+            stages.append("reuse")
         if failed & {"backlog_json", "backlog_markdown"}:
             stages.append("backlog")
         if "trends" in failed:
             stages.append("trends")
+        if failed & {"generated_changelog", "generated_release_notes", "generated_architecture"}:
+            stages.append("documents")
         if failed & {"dashboard", "dashboard_data"}:
             stages.append("dashboard")
+        if "artifact_catalog" in failed:
+            stages.append("artifacts")
         return {
             "status": validation.status,
             "stages": list(dict.fromkeys(stages)),
