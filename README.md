@@ -1,18 +1,42 @@
 # Portfolio OS
 
-Private governance and automation for the `benclawbot` GitHub portfolio.
+Private, evidence-based governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, safely synchronizes a managed local workspace, produces portfolio-wide reports, tracks portfolio changes over time, identifies multi-period trends, generates an offline static dashboard, refreshes the complete system through one locked pipeline, and enforces explicit portfolio and repository health policies. Destructive portfolio actions remain disabled by default.
+Portfolio OS 1.0 safely synchronizes repositories, analyzes implementation evidence, generates documentation, compares repository DNA, builds a knowledge graph, tracks portfolio history and trends, renders an offline dashboard, enforces health policies, records refresh runs, diagnoses locks, and validates persisted workspace artifacts.
 
-## Core workflow
+## Primary workflow
 
 ```bash
 export GITHUB_TOKEN=github_pat_...
-portfolio-refresh --pretty
 portfolio-refresh --policy portfolio-policy.example.json --pretty
+portfolio-workspace validate --pretty
 ```
 
-A refresh synchronizes safe local checkouts, analyzes changed repositories, rebuilds reports and the knowledge graph, records history, generates trends and the dashboard, and can enforce a policy as its final stage.
+The refresh pipeline runs:
+
+1. safe GitHub synchronization and changed-repository analysis;
+2. portfolio report and knowledge graph generation;
+3. immutable history snapshot and delta generation;
+4. multi-period trend analysis;
+5. offline dashboard generation;
+6. optional policy enforcement.
+
+Every run is protected by an exclusive workspace lock and recorded under `<workspace>/pipeline/runs/`.
+
+## Commands
+
+```bash
+portfolio-os --help
+portfolio-report --pretty
+portfolio-trends --pretty
+portfolio-dashboard --pretty
+portfolio-refresh --pretty
+portfolio-policy --pretty
+portfolio-ops runs --pretty
+portfolio-ops lock-status --pretty
+portfolio-workspace validate --pretty
+portfolio-workspace repair-plan --pretty
+```
 
 ## Repository analysis and documentation
 
@@ -24,89 +48,82 @@ python -m portfolio_os.cli dna /path/to/repository
 python -m portfolio_os.cli compare /path/to/repo-a /path/to/repo-b --pretty
 ```
 
-Generated README content is based on implementation evidence and preserves the existing leading hero banner. See [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md), [`docs/README-GENERATOR.md`](docs/README-GENERATOR.md), and [`docs/REPOSITORY-DNA.md`](docs/REPOSITORY-DNA.md).
+README generation is based on implementation evidence and preserves the existing leading hero banner.
 
-## Knowledge graph
+## Safe synchronization
 
-```bash
-python -m portfolio_os.cli graph-build /path/to/repo-a /path/to/repo-b \
-  --output reports/latest/portfolio-graph.json
-python -m portfolio_os.cli graph-query reports/latest/portfolio-graph.json repo:repo-a --impact
+Missing repositories are cloned. Existing clean repositories may advance only through a fast-forward update on their checked-out default branch.
+
+Portfolio OS never automatically:
+
+- resets, rebases, or cleans a repository;
+- force-updates a branch;
+- deletes branches or local repositories;
+- overwrites dirty working trees;
+- switches non-default branches.
+
+Dirty trees, detached HEADs, other branches, archived repositories, origin mismatches, path conflicts, and inaccessible repositories are preserved and reported.
+
+## Reports and dashboard
+
+Derived artifacts include:
+
+```text
+portfolio/     summary, Markdown report, knowledge graph
+history/       immutable snapshots and latest delta
+trends/        timelines, net changes, regressions, repository activity
+dashboard/     self-contained HTML and exact dashboard data
+pipeline/      latest run and immutable run history
+policy/        latest policy evaluation
+workspace/     validation manifest and artifact digests
 ```
 
-See [`docs/KNOWLEDGE-GRAPH.md`](docs/KNOWLEDGE-GRAPH.md).
+The dashboard has no external scripts, fonts, trackers, CDN assets, or network requests. It displays repository state, trends, policy violations, and recent refresh history.
 
-## Safe GitHub synchronization
-
-```bash
-python -m portfolio_os.cli sync --pretty
-python -m portfolio_os.cli workspace-status --pretty
-```
-
-Missing repositories are cloned. Existing clean repositories may advance only through fast-forward updates on their checked-out default branch. Dirty trees, other branches, detached HEADs, archived repositories, origin mismatches, path conflicts, and inaccessible repositories are preserved and reported. See [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md).
-
-## Reports, history, trends, and dashboard
+## Policies
 
 ```bash
-portfolio-report --pretty
-portfolio-trends --pretty
-portfolio-dashboard --pretty
-```
-
-Portfolio artifacts include analysis coverage, languages, frameworks, findings, repository status, attention queues, immutable snapshots, deltas, multi-period trends, regression signals, and a self-contained offline dashboard. See [`docs/PORTFOLIO-REPORTING.md`](docs/PORTFOLIO-REPORTING.md), [`docs/PORTFOLIO-HISTORY.md`](docs/PORTFOLIO-HISTORY.md), [`docs/PORTFOLIO-TRENDS.md`](docs/PORTFOLIO-TRENDS.md), and [`docs/PORTFOLIO-DASHBOARD.md`](docs/PORTFOLIO-DASHBOARD.md).
-
-## End-to-end refresh pipeline
-
-```bash
-portfolio-refresh --pretty
-portfolio-refresh --skip-sync --pretty
-portfolio-refresh --enforce-policy --pretty
+portfolio-policy --policy portfolio-policy.example.json --pretty
 portfolio-refresh --policy portfolio-policy.example.json --pretty
 ```
 
-The pipeline uses an exclusive workspace lock, records per-stage status and duration, blocks dependent stages after failure by default, and writes `<workspace>/pipeline/latest-run.json`. A fail-level policy violation marks the entire refresh failed. See [`docs/REFRESH-PIPELINE.md`](docs/REFRESH-PIPELINE.md).
+Policies support portfolio-wide thresholds and exact repository-specific rules. Unknown sections, rules, fields, and invalid threshold types fail clearly. Fail-level violations return exit code `2`; warnings remain visible without failing the command.
 
-## Portfolio and repository policies
-
-```bash
-portfolio-policy --pretty
-portfolio-policy --policy portfolio-policy.example.json --pretty
-```
-
-Portfolio OS `0.14.0` supports strict schema validation and exact repository-specific rules for analysis availability, accessibility, dirty state, tests, findings, and analyzer errors. Unknown sections, rules, fields, and invalid value types fail clearly instead of being silently ignored. See [`docs/PORTFOLIO-POLICY.md`](docs/PORTFOLIO-POLICY.md).
-
-## Production foundation
+## Operations and recovery
 
 ```bash
-cp portfolio-os.example.json portfolio-os.json
-python -m portfolio_os.cli --runtime-config portfolio-os.json analyze . --pretty
-python -m portfolio_os.cli --json-logs --log-level DEBUG analyze . --pretty
-python -m portfolio_os.cli plugins
+portfolio-ops runs --limit 10 --pretty
+portfolio-ops lock-status --stale-after 3600 --pretty
+portfolio-ops clear-stale-lock --stale-after 3600 --pretty
+portfolio-workspace repair-plan --pretty
 ```
 
-External analyzer packages can register through the `portfolio_os.analyzers` entry-point group. See [`docs/PRODUCTION-FOUNDATION.md`](docs/PRODUCTION-FOUNDATION.md).
+Stale-lock cleanup is explicit and refuses to remove a lock that has not met the configured staleness threshold. Workspace repair planning is non-destructive and maps missing or invalid artifacts to the minimum rebuild stages.
 
-## Development
+## Development and release verification
 
 ```bash
 python -m pip install -e ".[dev]"
 python -m compileall -q portfolio_os
 python -m ruff check portfolio_os tests
 python -m pytest -q --cov=portfolio_os --cov-report=term-missing
+python -m build
 ```
 
-## Safety defaults
+## Documentation
 
-- Archive actions are recommendation-only.
-- Pull-request actions are analysis-only.
-- Existing README hero banners are preserved.
-- README replacement requires explicit `--write`.
-- GitHub synchronization never resets, rebases, cleans, force-updates, deletes branches, or deletes local repositories.
-- Dirty working trees and non-default branches are preserved and reported.
-- Historical snapshots contain derived evidence only.
-- Snapshot deletion requires an explicit retention apply flag and always preserves at least one snapshot.
-- Dashboard generation writes only static output files.
-- Concurrent refreshes are rejected through an exclusive workspace lock.
-- Policy evaluation writes only a derived policy report.
+- [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md)
+- [`docs/README-GENERATOR.md`](docs/README-GENERATOR.md)
+- [`docs/REPOSITORY-DNA.md`](docs/REPOSITORY-DNA.md)
+- [`docs/KNOWLEDGE-GRAPH.md`](docs/KNOWLEDGE-GRAPH.md)
+- [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md)
+- [`docs/PORTFOLIO-REPORTING.md`](docs/PORTFOLIO-REPORTING.md)
+- [`docs/PORTFOLIO-HISTORY.md`](docs/PORTFOLIO-HISTORY.md)
+- [`docs/PORTFOLIO-TRENDS.md`](docs/PORTFOLIO-TRENDS.md)
+- [`docs/PORTFOLIO-DASHBOARD.md`](docs/PORTFOLIO-DASHBOARD.md)
+- [`docs/REFRESH-PIPELINE.md`](docs/REFRESH-PIPELINE.md)
+- [`docs/PORTFOLIO-POLICY.md`](docs/PORTFOLIO-POLICY.md)
+- [`docs/OPERATIONS-AND-VALIDATION.md`](docs/OPERATIONS-AND-VALIDATION.md)
+- [`CHANGELOG.md`](CHANGELOG.md)
 
-Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
+Portfolio-level decisions remain under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
