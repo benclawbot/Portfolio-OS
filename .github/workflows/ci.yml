@@ -66,6 +66,11 @@ jobs:
           test -f /tmp/portfolio-os-pipeline/dashboard/index.html
           test ! -f /tmp/portfolio-os-pipeline/.portfolio-os-refresh.lock
           grep -q '"status": "completed"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
+      - name: Portfolio policy smoke test
+        run: |
+          portfolio-policy --workspace /tmp/portfolio-os-pipeline --pretty
+          test -f /tmp/portfolio-os-pipeline/policy/latest-policy.json
+          grep -q '"status": "passed"' /tmp/portfolio-os-pipeline/policy/latest-policy.json
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
