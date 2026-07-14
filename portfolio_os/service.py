@@ -4,7 +4,7 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from portfolio_os.backlog import PortfolioBacklog
@@ -46,12 +46,27 @@ class PortfolioService:
         return self.jobs.submit(kind, parameters).to_dict()
 
     def run_next(self) -> dict[str, Any] | None:
+        def run_report(parameters: dict[str, Any]) -> dict[str, Any]:
+            result = PortfolioBuilder(self.workspace).build(float(parameters.get("similarity_threshold", 0.55)))
+            return {
+                "summary_path": str(result.summary_path),
+                "report_path": str(result.report_path),
+                "graph_path": str(result.graph_path),
+            }
+
+        def run_trends(parameters: dict[str, Any]) -> dict[str, Any]:
+            limit = parameters.get("limit")
+            result = PortfolioTrends(self.workspace).build(int(limit) if limit is not None else None)
+            return {
+                "json_path": str(result.json_path),
+                "report_path": str(result.report_path),
+                "snapshot_count": result.data.get("snapshot_count", 0),
+            }
+
         handlers = {
-            "report": lambda parameters: PortfolioBuilder(self.workspace).build(
-                float(parameters.get("similarity_threshold", 0.55))
-            ).__dict__,
+            "report": run_report,
             "backlog": lambda parameters: PortfolioBacklog(self.workspace).build().to_dict(),
-            "trends": lambda parameters: PortfolioTrends(self.workspace).build(parameters.get("limit")).__dict__,
+            "trends": run_trends,
             "documents": lambda parameters: PortfolioDocumentGenerator(self.workspace).build().to_dict(),
         }
         result = self.jobs.run_next(handlers)
@@ -63,7 +78,8 @@ class PortfolioRequestHandler(BaseHTTPRequestHandler):
 
     @property
     def service(self) -> PortfolioService:
-        return self.server.service  # type: ignore[attr-defined]
+        server = cast(PortfolioHTTPServer, self.server)
+        return server.service
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -97,9 +113,12 @@ class PortfolioRequestHandler(BaseHTTPRequestHandler):
         try:
             payload = self._body()
             if self.path == "/v1/jobs":
+                parameters = payload.get("parameters")
+                if parameters is not None and not isinstance(parameters, dict):
+                    raise ValueError("parameters must be an object")
                 self._json(
                     HTTPStatus.ACCEPTED,
-                    self.service.submit(str(payload.get("kind", "")), payload.get("parameters") or {}),
+                    self.service.submit(str(payload.get("kind", "")), parameters or {}),
                 )
                 return
             if self.path == "/v1/jobs/run-next":
