@@ -66,7 +66,7 @@ class PortfolioPolicy:
         "max_analysis_errors": {"value": 0, "level": "fail"},
         "max_regressions": {"value": 0, "level": "warn"},
         "min_history_snapshots": {"value": 1, "level": "warn"},
-        "require_pipeline_completed": {"value": False, "level": "fail"},
+        "require_pipeline_completed": {"value": True, "level": "fail", "enabled": False},
     }
 
     def __init__(self, workspace: Path, policy_path: Path | None = None) -> None:
@@ -176,7 +176,7 @@ class PortfolioPolicy:
             raise ValueError(f"invalid policy level for {name}: {level}")
         if "enabled" in config and not isinstance(config["enabled"], bool):
             raise ValueError(f"enabled must be boolean for {name}")
-        if "value" not in config:
+        if config.get("enabled", True) and "value" not in config:
             raise ValueError(f"policy value is required for {name}")
         return dict(config)
 
