@@ -76,7 +76,7 @@ class PortfolioPolicy:
 
     def evaluate(self, *, pipeline_status: str | None = None) -> PolicyResult:
         portfolio_rules, repository_rules = self._load_policy()
-        summary = self._read_json(self.workspace / "portfolio" / "portfolio-summary.json")
+        summary = self._read_required_json(self.workspace / "portfolio" / "portfolio-summary.json")
         trends = self._read_json(self.workspace / "trends" / "portfolio-trends.json", required=False) or {}
         pipeline = self._read_json(self.workspace / "pipeline" / "latest-run.json", required=False) or {}
         effective_pipeline_status = pipeline_status if pipeline_status is not None else pipeline.get("status")
@@ -139,7 +139,7 @@ class PortfolioPolicy:
         repositories: dict[str, dict[str, dict[str, Any]]] = {}
         if not self.policy_path:
             return rules, repositories
-        raw = self._read_json(self.policy_path)
+        raw = self._read_required_json(self.policy_path)
         allowed_top = {"rules", "repositories"}
         unknown_top = set(raw) - allowed_top
         if unknown_top:
@@ -199,6 +199,13 @@ class PortfolioPolicy:
         expression = {"min": f">= {expected}", "max": f"<= {expected}", "bool": str(expected).lower(), "allow": f"allowed={expected}"}[kind]
         scope = f" for {repository}" if repository else ""
         return PolicyViolation(rule, level, expression, actual, f"{rule}{scope} expected {expression}, observed {actual}", repository)
+
+    @classmethod
+    def _read_required_json(cls, path: Path) -> dict[str, Any]:
+        data = cls._read_json(path)
+        if data is None:
+            raise FileNotFoundError(f"required artifact not found: {path}")
+        return data
 
     @staticmethod
     def _read_json(path: Path, required: bool = True) -> dict[str, Any] | None:
