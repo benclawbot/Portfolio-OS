@@ -27,6 +27,7 @@ portfolio-refresh = "portfolio_os.pipeline_cli:main"
 portfolio-policy = "portfolio_os.policy_cli:main"
 portfolio-ops = "portfolio_os.operations_cli:main"
 portfolio-workspace = "portfolio_os.workspace_cli:main"
+portfolio-github-index = "portfolio_os.github_index_cli:main"
 
 [project.entry-points."portfolio_os.analyzers"]
 
