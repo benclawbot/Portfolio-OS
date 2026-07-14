@@ -27,6 +27,11 @@ jobs:
         run: python -m pytest -q --cov=portfolio_os --cov-report=term-missing
       - name: Plugin registry smoke test
         run: python -m portfolio_os.cli plugins
+      - name: Workspace CLI smoke test
+        run: |
+          python -m portfolio_os.cli sync --help
+          python -m portfolio_os.cli workspace-status --help
+          python -m portfolio_os.cli workspace-status --workspace /tmp/portfolio-os-empty --pretty
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
