@@ -12,6 +12,7 @@ from portfolio_os.backlog import PortfolioBacklog
 from portfolio_os.dashboard import PortfolioDashboard
 from portfolio_os.generators import PortfolioDocumentGenerator
 from portfolio_os.history import PortfolioHistory
+from portfolio_os.lineage import RepositoryLineage
 from portfolio_os.operations import RefreshOperations
 from portfolio_os.policy import PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuilder
@@ -67,6 +68,7 @@ class PortfolioPipeline:
         trend_limit: int | None = None,
         policy_path: Path | None = None,
         enforce_policy: bool = False,
+        lineage_config_path: Path | None = None,
     ) -> None:
         self.workspace = workspace.expanduser().resolve()
         self.sync_stage = sync_stage
@@ -74,6 +76,7 @@ class PortfolioPipeline:
         self.trend_limit = trend_limit
         self.policy_path = policy_path.expanduser().resolve() if policy_path else None
         self.enforce_policy = enforce_policy
+        self.lineage_config_path = lineage_config_path.expanduser().resolve() if lineage_config_path else None
         self.operations = RefreshOperations(self.workspace)
         self.lock_path = self.operations.lock_path
         self.result_path = self.operations.latest_path
@@ -86,6 +89,7 @@ class PortfolioPipeline:
             configured = [
                 ("sync", self.sync_stage),
                 ("report", self._report_stage),
+                ("lineage", self._lineage_stage),
                 ("reuse", self._reuse_stage),
                 ("backlog", self._backlog_stage),
                 ("trends", self._trends_stage),
@@ -136,6 +140,9 @@ class PortfolioPipeline:
             "delta_path": str(history.delta_path),
             "delta_summary": history.delta["summary"],
         }
+
+    def _lineage_stage(self) -> dict[str, Any]:
+        return RepositoryLineage(self.workspace, self.lineage_config_path).build().to_dict()
 
     def _reuse_stage(self) -> dict[str, Any]:
         return PortfolioReuseAnalyzer(self.workspace).build().to_dict()
