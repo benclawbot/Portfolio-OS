@@ -46,6 +46,8 @@ class WorkspaceValidator:
         "portfolio_summary": ("portfolio/portfolio-summary.json", True),
         "portfolio_report": ("portfolio/portfolio-report.md", True),
         "portfolio_graph": ("portfolio/portfolio-graph.json", True),
+        "backlog_json": ("backlog/portfolio-backlog.json", True),
+        "backlog_markdown": ("backlog/portfolio-backlog.md", True),
         "history_latest": ("history/latest.json", True),
         "history_delta": ("history/latest-delta.json", True),
         "trends": ("trends/portfolio-trends.json", True),
@@ -102,6 +104,8 @@ class WorkspaceValidator:
             stages.append("github-index")
         if failed & {"portfolio_summary", "portfolio_report", "portfolio_graph", "history_latest", "history_delta"}:
             stages.append("report")
+        if failed & {"backlog_json", "backlog_markdown"}:
+            stages.append("backlog")
         if "trends" in failed:
             stages.append("trends")
         if failed & {"dashboard", "dashboard_data"}:
