@@ -8,5 +8,15 @@
     "max_regressions": {"value": 0, "level": "warn"},
     "min_history_snapshots": {"value": 1, "level": "warn"},
     "require_pipeline_completed": {"value": true, "level": "fail"}
+  },
+  "repositories": {
+    "benclawbot/example-project": {
+      "require_analysis": {"value": true, "level": "fail"},
+      "require_accessible": {"value": true, "level": "fail"},
+      "allow_dirty": {"value": false, "level": "warn"},
+      "min_test_files": {"value": 1, "level": "warn"},
+      "max_findings": {"value": 20, "level": "warn"},
+      "max_analysis_errors": {"value": 0, "level": "fail"}
+    }
   }
 }
