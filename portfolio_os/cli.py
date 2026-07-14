@@ -6,19 +6,25 @@ import json
 import sys
 from pathlib import Path
 
+from portfolio_os.config import PortfolioConfig, load_runtime_config
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
+from portfolio_os.logging import configure_logging
+from portfolio_os.plugins import PluginRegistry
 from portfolio_os.readme import ReadmeGenerator
 
 
-def load_config(path: Path) -> dict:
+def load_inventory_config(path: Path) -> dict:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Portfolio OS")
+    parser.add_argument("--runtime-config", type=Path, help="JSON runtime configuration file")
+    parser.add_argument("--log-level", help="Override configured log level")
+    parser.add_argument("--json-logs", action="store_true", help="Emit structured JSON logs")
     subparsers = parser.add_subparsers(dest="command", required=True)
     for command in ("inventory", "decisions", "archive-candidates"):
         command_parser = subparsers.add_parser(command)
@@ -28,6 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("path", nargs="?", default=".")
     analyze.add_argument("--output", "-o", type=Path)
     analyze.add_argument("--pretty", action="store_true")
+    analyze.add_argument("--discover-plugins", action="store_true")
+
+    subparsers.add_parser("plugins", help="List registered analyzer plugins")
 
     readme = subparsers.add_parser("readme")
     readme.add_argument("path", nargs="?", default=".")
@@ -79,9 +88,13 @@ def print_summary(data: dict) -> None:
         print(f"- [{finding['severity'].upper()}] {finding['title']}")
 
 
-def handle_readme(args: argparse.Namespace) -> int:
+def make_engine(config: PortfolioConfig, *, discover_plugins: bool = False) -> AnalysisEngine:
+    return AnalysisEngine(config=config, discover_plugins=discover_plugins)
+
+
+def handle_readme(args: argparse.Namespace, config: PortfolioConfig) -> int:
     root = Path(args.path).expanduser().resolve()
-    analysis = AnalysisEngine().analyze(root)
+    analysis = make_engine(config).analyze(root)
     generator = ReadmeGenerator(preserve_hero=not args.no_preserve_hero)
     generated = generator.generate(root, analysis)
     current_path = root / "README.md"
@@ -98,8 +111,8 @@ def handle_readme(args: argparse.Namespace) -> int:
     return 2 if args.check and current != generated else 0
 
 
-def handle_dna(args: argparse.Namespace) -> int:
-    data = DNABuilder().build(AnalysisEngine().analyze(Path(args.path))).to_dict()
+def handle_dna(args: argparse.Namespace, config: PortfolioConfig) -> int:
+    data = DNABuilder().build(make_engine(config).analyze(Path(args.path))).to_dict()
     text = json.dumps(data, indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -109,8 +122,8 @@ def handle_dna(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_compare(args: argparse.Namespace) -> int:
-    engine = AnalysisEngine()
+def handle_compare(args: argparse.Namespace, config: PortfolioConfig) -> int:
+    engine = make_engine(config)
     builder = DNABuilder()
     result = SimilarityEngine().compare(builder.build(engine.analyze(Path(args.left))), builder.build(engine.analyze(Path(args.right))))
     text = json.dumps(result.to_dict(), indent=2) + "\n"
@@ -139,16 +152,23 @@ def handle_graph_build(args: argparse.Namespace) -> int:
 
 def main() -> int:
     args = build_parser().parse_args()
+    runtime_config = load_runtime_config(args.runtime_config)
+    configure_logging(args.log_level or runtime_config.logging.level, args.json_logs or runtime_config.logging.json)
+
+    if args.command == "plugins":
+        registry = PluginRegistry()
+        print(json.dumps([{"name": item.name, "source": item.source} for item in registry.descriptors()], indent=2))
+        return 0
     if args.command == "analyze":
-        analysis = AnalysisEngine().analyze(Path(args.path))
+        analysis = make_engine(runtime_config, discover_plugins=args.discover_plugins).analyze(Path(args.path))
         data = analysis.to_dict()
         if args.output:
             analysis.write_json(args.output)
         print_summary(data) if args.pretty else print(json.dumps(data, indent=2))
         return 1 if data["summary"]["error_count"] else 0
-    if args.command == "readme": return handle_readme(args)
-    if args.command == "dna": return handle_dna(args)
-    if args.command == "compare": return handle_compare(args)
+    if args.command == "readme": return handle_readme(args, runtime_config)
+    if args.command == "dna": return handle_dna(args, runtime_config)
+    if args.command == "compare": return handle_compare(args, runtime_config)
     if args.command == "graph-build": return handle_graph_build(args)
     if args.command in {"graph-query", "graph-path"}:
         graph = GraphStore().load(args.graph)
@@ -161,11 +181,11 @@ def main() -> int:
             print(json.dumps([edge.__dict__ for edge in query.neighbors(args.node, args.relation, args.incoming)], indent=2))
         return 0
 
-    config = load_config(Path(args.config))
-    repositories = config["repositories"]
+    inventory_config = load_inventory_config(Path(args.config))
+    repositories = inventory_config["repositories"]
     if args.command == "inventory": print(json.dumps(repositories, indent=2))
     elif args.command == "archive-candidates": print("\n".join(repo["name"] for repo in repositories if "archive" in repo["classification"]))
-    else: print(json.dumps({key: value for key, value in config.items() if key != "repositories"}, indent=2))
+    else: print(json.dumps({key: value for key, value in inventory_config.items() if key != "repositories"}, indent=2))
     return 0
 
 
