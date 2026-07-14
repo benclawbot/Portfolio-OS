@@ -5,6 +5,7 @@ from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
 from portfolio_os.plugins import PluginRegistry
+from portfolio_os.sync import GitHubAPIClient, SubprocessGitClient, WorkspaceSynchronizer
 
 __all__ = [
     "AnalysisEngine",
@@ -17,5 +18,8 @@ __all__ = [
     "PluginRegistry",
     "PortfolioConfig",
     "load_runtime_config",
+    "GitHubAPIClient",
+    "SubprocessGitClient",
+    "WorkspaceSynchronizer",
 ]
-__version__ = "0.6.0"
+__version__ = "0.7.0"
