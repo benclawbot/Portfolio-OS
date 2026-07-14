@@ -1,5 +1,9 @@
 {
   "workspace": ".portfolio-os",
+  "github": {
+    "owner": "benclawbot",
+    "api_url": "https://api.github.com"
+  },
   "analysis": {
     "enabled_analyzers": [],
     "disabled_analyzers": [],
