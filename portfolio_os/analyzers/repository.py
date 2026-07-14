@@ -17,7 +17,7 @@ class RepositoryAnalyzer(Analyzer):
     def analyze(self, root: Path) -> AnalyzerResult:
         files = list(iter_files(root))
         suffixes = Counter(path.suffix.lower() or "<none>" for path in files)
-        markers: list[dict[str, object]] = []
+        markers: list[dict[str, str | int]] = []
         line_count = 0
         for path in files:
             if path.suffix.lower() not in TEXT_SUFFIXES or path.stat().st_size > 1_000_000:
