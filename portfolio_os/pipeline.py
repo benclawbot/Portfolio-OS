@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from portfolio_os.backlog import PortfolioBacklog
 from portfolio_os.dashboard import PortfolioDashboard
 from portfolio_os.history import PortfolioHistory
 from portfolio_os.operations import RefreshOperations
@@ -55,7 +56,16 @@ class PolicyGateError(RuntimeError):
 class PortfolioPipeline:
     """Run the Portfolio OS refresh stages with locking and durable stage reporting."""
 
-    def __init__(self, workspace: Path, *, sync_stage: Callable[[], dict[str, Any]] | None = None, similarity_threshold: float = 0.55, trend_limit: int | None = None, policy_path: Path | None = None, enforce_policy: bool = False) -> None:
+    def __init__(
+        self,
+        workspace: Path,
+        *,
+        sync_stage: Callable[[], dict[str, Any]] | None = None,
+        similarity_threshold: float = 0.55,
+        trend_limit: int | None = None,
+        policy_path: Path | None = None,
+        enforce_policy: bool = False,
+    ) -> None:
         self.workspace = workspace.expanduser().resolve()
         self.sync_stage = sync_stage
         self.similarity_threshold = similarity_threshold
@@ -71,7 +81,14 @@ class PortfolioPipeline:
         started = time.time()
         stages: list[PipelineStageResult] = []
         with self._lock():
-            configured = [("sync", self.sync_stage), ("report", self._report_stage), ("trends", self._trends_stage), ("dashboard", self._dashboard_stage), ("policy", self._policy_stage if self.enforce_policy else None)]
+            configured = [
+                ("sync", self.sync_stage),
+                ("report", self._report_stage),
+                ("backlog", self._backlog_stage),
+                ("trends", self._trends_stage),
+                ("dashboard", self._dashboard_stage),
+                ("policy", self._policy_stage if self.enforce_policy else None),
+            ]
             blocked = False
             for name, stage in configured:
                 if stage is None:
@@ -85,7 +102,15 @@ class PortfolioPipeline:
                     output = stage()
                     stages.append(PipelineStageResult(name, "completed", time.perf_counter() - stage_started, output))
                 except Exception as error:
-                    stages.append(PipelineStageResult(name, "failed", time.perf_counter() - stage_started, {}, f"{type(error).__name__}: {error}"))
+                    stages.append(
+                        PipelineStageResult(
+                            name,
+                            "failed",
+                            time.perf_counter() - stage_started,
+                            {},
+                            f"{type(error).__name__}: {error}",
+                        )
+                    )
                     if not continue_on_error:
                         blocked = True
             completed = time.time()
@@ -99,11 +124,26 @@ class PortfolioPipeline:
     def _report_stage(self) -> dict[str, Any]:
         report = PortfolioBuilder(self.workspace).build(self.similarity_threshold)
         history = PortfolioHistory(self.workspace).record(report.data)
-        return {"summary_path": str(report.summary_path), "report_path": str(report.report_path), "graph_path": str(report.graph_path), "snapshot_path": str(history.snapshot_path), "delta_path": str(history.delta_path), "delta_summary": history.delta["summary"]}
+        return {
+            "summary_path": str(report.summary_path),
+            "report_path": str(report.report_path),
+            "graph_path": str(report.graph_path),
+            "snapshot_path": str(history.snapshot_path),
+            "delta_path": str(history.delta_path),
+            "delta_summary": history.delta["summary"],
+        }
+
+    def _backlog_stage(self) -> dict[str, Any]:
+        return PortfolioBacklog(self.workspace).build().to_dict()
 
     def _trends_stage(self) -> dict[str, Any]:
         trends = PortfolioTrends(self.workspace).build(self.trend_limit)
-        return {"json_path": str(trends.json_path), "report_path": str(trends.report_path), "snapshot_count": trends.data["snapshot_count"], "regression_count": len(trends.data["regressions"])}
+        return {
+            "json_path": str(trends.json_path),
+            "report_path": str(trends.report_path),
+            "snapshot_count": trends.data["snapshot_count"],
+            "regression_count": len(trends.data["regressions"]),
+        }
 
     def _dashboard_stage(self) -> dict[str, Any]:
         dashboard = PortfolioDashboard(self.workspace).build()
@@ -122,7 +162,11 @@ class PortfolioPipeline:
             descriptor = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError as error:
             status = self.operations.inspect_lock()
-            detail = f"age={status.age_seconds:.0f}s stale={status.stale}" if status.age_seconds is not None else f"malformed={status.malformed} stale={status.stale}"
+            detail = (
+                f"age={status.age_seconds:.0f}s stale={status.stale}"
+                if status.age_seconds is not None
+                else f"malformed={status.malformed} stale={status.stale}"
+            )
             raise PipelineLockedError(f"another refresh appears active: {self.lock_path} ({detail})") from error
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
