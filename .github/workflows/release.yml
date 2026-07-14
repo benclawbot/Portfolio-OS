@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the v prefix, for example 1.0.0"
+        required: true
+        type: string
+      target:
+        description: "Commit or branch to release"
+        required: true
+        default: main
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release version
+        id: release
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="${REF_NAME#v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Verify package version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          package_version="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          print(tomllib.loads(Path('pyproject.toml').read_text())['project']['version'])
+          PY
+          )"
+          if [[ "$package_version" != "$RELEASE_VERSION" ]]; then
+            echo "pyproject version $package_version does not match release $RELEASE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Compile
+        run: python -m compileall -q portfolio_os
+
+      - name: Lint
+        run: python -m ruff check portfolio_os tests
+
+      - name: Test
+        run: python -m pytest -q --cov=portfolio_os --cov-report=term-missing
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Verify distributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --force-reinstall dist/*.whl
+          portfolio-os --help >/dev/null
+          portfolio-refresh --help >/dev/null
+          portfolio-workspace --help >/dev/null
+
+      - name: Create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create tag for manual release
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+          git tag -a "$TAG" -m "Portfolio OS $TAG"
+          git push origin "$TAG"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          notes_file="$(mktemp)"
+          python - "$TAG" > "$notes_file" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          tag = sys.argv[1]
+          version = tag.removeprefix("v")
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(
+              rf"^## {re.escape(version)}\s*$\n(.*?)(?=^## \S|\Z)",
+              text,
+              flags=re.MULTILINE | re.DOTALL,
+          )
+          if not match:
+              raise SystemExit(f"CHANGELOG.md has no section for {version}")
+          print(match.group(1).strip())
+          PY
+          gh release create "$TAG" dist/* --title "Portfolio OS $TAG" --notes-file "$notes_file" --verify-tag
