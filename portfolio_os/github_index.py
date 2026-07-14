@@ -176,7 +176,7 @@ class GitHubMetadataIndexer:
 
     def _collect(self, repository: RepositoryState) -> dict[str, Any]:
         base = f"/repos/{repository.full_name}"
-        branches = self._pages(f"{base}/branches", protected="false")
+        branches = self._pages(f"{base}/branches")
         tags = self._pages(f"{base}/tags")
         releases = self._pages(f"{base}/releases")
         issues_payload = self._pages(f"{base}/issues", state="all", sort="updated", direction="desc")
@@ -270,13 +270,18 @@ class GitHubMetadataIndexer:
         }
 
     def _issue(self, item: dict[str, Any]) -> dict[str, Any]:
+        assignees = []
+        for actor in item.get("assignees", []):
+            login = _actor(actor)
+            if login:
+                assignees.append(login)
         return {
             "number": int(item.get("number", 0)),
             "title": str(item.get("title", "")),
             "state": str(item.get("state", "")),
             "state_reason": item.get("state_reason"),
             "author": _actor(item.get("user")),
-            "assignees": [_actor(actor) for actor in item.get("assignees", []) if _actor(actor)],
+            "assignees": assignees,
             "labels": [
                 str(label.get("name", ""))
                 for label in item.get("labels", [])
