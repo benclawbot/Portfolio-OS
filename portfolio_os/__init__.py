@@ -12,6 +12,7 @@ from portfolio_os.history import PortfolioHistory, SnapshotResult
 from portfolio_os.plugins import PluginRegistry
 from portfolio_os.portfolio import PortfolioBuildResult, PortfolioBuilder
 from portfolio_os.sync import GitHubAPIClient, SubprocessGitClient, WorkspaceSynchronizer
+from portfolio_os.trends import PortfolioTrends, TrendResult
 
 __all__ = [
     "AnalysisEngine",
@@ -31,5 +32,7 @@ __all__ = [
     "PortfolioBuilder",
     "PortfolioHistory",
     "SnapshotResult",
+    "PortfolioTrends",
+    "TrendResult",
 ]
-__version__ = "0.9.0"
+__version__ = "0.10.0"
