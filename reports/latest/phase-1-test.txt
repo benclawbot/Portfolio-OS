@@ -1,0 +1,31 @@
+python -m compileall -q portfolio_os
+(no output; passed)
+
+python -m pytest -q
+......                                                                   [100%]
+6 passed in 0.15s
+
+python -m portfolio_os.cli analyze tests/fixtures/sample_repo --pretty
+Repository: sample_repo
+Primary language: Python
+Files: 5
+Tests: 1
+Findings: 6 | Errors: 0
+- [MEDIUM] Missing LICENSE
+- [MEDIUM] Missing SECURITY.md
+- [MEDIUM] README contains little project evidence
+- [MEDIUM] Missing .gitignore
+- [LOW] Missing CHANGELOG.md
+- [LOW] Missing CONTRIBUTING.md
+
+python -m portfolio_os.cli analyze . --output /tmp/portfolio-os-self.json --pretty
+Repository: portfolio-OS
+Primary language: Python
+Files: 31
+Tests: 7
+Findings: 5 | Errors: 0
+- [MEDIUM] Missing LICENSE
+- [MEDIUM] Missing SECURITY.md
+- [MEDIUM] No GitHub Actions workflows detected
+- [LOW] Missing CHANGELOG.md
+- [LOW] Missing CONTRIBUTING.md
