@@ -20,6 +20,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--continue-on-error", action="store_true", help="Attempt later stages after a stage failure")
     parser.add_argument("--threshold", type=float, default=0.55, help="Repository similarity threshold")
     parser.add_argument("--trend-limit", type=int, help="Use only the latest N snapshots for trends")
+    parser.add_argument("--policy", type=Path, help="Policy JSON file to enforce as the final stage")
+    parser.add_argument("--enforce-policy", action="store_true", help="Run the built-in or supplied policy as the final stage")
     parser.add_argument("--pretty", action="store_true", help="Print a concise human-readable summary")
     return parser
 
@@ -50,6 +52,8 @@ def main() -> int:
         sync_stage=sync_stage,
         similarity_threshold=args.threshold,
         trend_limit=args.trend_limit,
+        policy_path=args.policy,
+        enforce_policy=args.enforce_policy or args.policy is not None,
     )
     try:
         result = pipeline.run(continue_on_error=args.continue_on_error)
