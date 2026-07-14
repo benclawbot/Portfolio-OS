@@ -24,15 +24,19 @@ def test_runs_all_artifact_stages_without_sync(tmp_path):
         "completed",
         "completed",
         "completed",
+        "completed",
+        "completed",
         "skipped",
     ]
     assert (tmp_path / "portfolio" / "portfolio-summary.json").exists()
     assert (tmp_path / "history" / "latest.json").exists()
+    assert (tmp_path / "lineage" / "repository-lineage.json").exists()
     assert (tmp_path / "reuse" / "duplicate-components.json").exists()
     assert (tmp_path / "backlog" / "portfolio-backlog.json").exists()
     assert (tmp_path / "trends" / "portfolio-trends.json").exists()
     assert (tmp_path / "documents" / "ARCHITECTURE.generated.md").exists()
     assert (tmp_path / "dashboard" / "index.html").exists()
+    assert (tmp_path / "artifacts" / "catalog.json").exists()
     assert (tmp_path / "pipeline" / "latest-run.json").exists()
 
 
@@ -58,6 +62,8 @@ def test_failure_blocks_later_stages_by_default(tmp_path):
         "blocked",
         "blocked",
         "blocked",
+        "blocked",
+        "blocked",
         "skipped",
     ]
     assert "RuntimeError: sync failed" == result.stages[0].error
@@ -73,6 +79,8 @@ def test_continue_on_error_attempts_independent_later_stages(tmp_path):
     assert result.status == "failed"
     assert result.stages[0].status == "failed"
     assert [stage.status for stage in result.stages[1:]] == [
+        "completed",
+        "completed",
         "completed",
         "completed",
         "completed",
