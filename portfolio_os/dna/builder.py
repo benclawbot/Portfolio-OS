@@ -44,6 +44,17 @@ def _values(items: Iterable[object]) -> tuple[str, ...]:
     return tuple(sorted({_normalize(item) for item in items if _normalize(item)}))
 
 
+def _language_values(language_facts: dict[str, object]) -> tuple[str, ...]:
+    """Read the current analyzer schema while retaining pre-1.0 compatibility."""
+    file_counts = language_facts.get("file_counts", {})
+    if isinstance(file_counts, dict):
+        return _values(file_counts.keys())
+    detected = language_facts.get("detected", [])
+    if isinstance(detected, (list, tuple, set)):
+        return _values(detected)
+    return ()
+
+
 class DNABuilder:
     def __init__(self, weights: dict[str, float] | None = None) -> None:
         self.weights = dict(weights or DEFAULT_WEIGHTS)
@@ -61,6 +72,7 @@ class DNABuilder:
         language_facts = facts.get("languages", {})
         manifest_facts = facts.get("manifests", {})
         repository_facts = facts.get("repository", {})
+        languages = _language_values(language_facts)
 
         dependency_values: list[str] = []
         for ecosystem, dependencies in sorted(manifest_facts.get("dependencies", {}).items()):
@@ -68,7 +80,7 @@ class DNABuilder:
 
         raw_tokens = set()
         for collection in (
-            language_facts.get("detected", []),
+            languages,
             manifest_facts.get("ecosystems", []),
             manifest_facts.get("frameworks", []),
             dependency_values,
@@ -81,7 +93,7 @@ class DNABuilder:
         capabilities = self._capabilities(raw_tokens)
 
         features = DNAFeatureSet(
-            languages=_values(language_facts.get("detected", [])),
+            languages=languages,
             ecosystems=_values(manifest_facts.get("ecosystems", [])),
             frameworks=_values(manifest_facts.get("frameworks", [])),
             dependencies=_values(dependency_values),
