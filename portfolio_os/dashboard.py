@@ -26,13 +26,27 @@ class PortfolioDashboard:
         self.summary_path = self.workspace / "portfolio" / "portfolio-summary.json"
         self.trends_path = self.workspace / "trends" / "portfolio-trends.json"
         self.policy_path = self.workspace / "policy" / "latest-policy.json"
+        self.backlog_path = self.workspace / "backlog" / "portfolio-backlog.json"
+        self.reuse_path = self.workspace / "reuse" / "duplicate-components.json"
+        self.lineage_path = self.workspace / "lineage" / "repository-lineage.json"
 
     def build(self) -> DashboardResult:
         portfolio = self._read_json(self.summary_path)
         trends = self._read_json(self.trends_path, required=False) or self._empty_trends()
         policy = self._read_json(self.policy_path, required=False) or self._empty_policy()
+        backlog = self._read_json(self.backlog_path, required=False) or {"summary": {"item_count": 0}, "items": []}
+        reuse = self._read_json(self.reuse_path, required=False) or {"summary": {"duplicate_group_count": 0}, "groups": []}
+        lineage = self._read_json(self.lineage_path, required=False) or {"summary": {"edge_count": 0}, "edges": []}
         runs = RefreshOperations(self.workspace).list_runs(limit=10)
-        payload = {"portfolio": portfolio, "trends": trends, "policy": policy, "runs": runs}
+        payload = {
+            "portfolio": portfolio,
+            "trends": trends,
+            "policy": policy,
+            "backlog": backlog,
+            "reuse": reuse,
+            "lineage": lineage,
+            "runs": runs,
+        }
         data_path = self.output_dir / "dashboard-data.json"
         html_path = self.output_dir / "index.html"
         self._write_text_atomic(data_path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -126,6 +140,7 @@ class PortfolioDashboard:
 
     @staticmethod
     def _repository_row(item: dict[str, Any]) -> str:
+        intelligence = item.get("intelligence", {}).get("overall_score", "n/a")
         return (
             "<tr>"
             f'<td><strong>{html.escape(str(item.get("full_name", "unknown")))}</strong></td>'
@@ -133,6 +148,7 @@ class PortfolioDashboard:
             f'<td>{html.escape(str(item.get("primary_language") or "unknown"))}</td>'
             f'<td>{html.escape(str(item.get("test_file_count", 0)))}</td>'
             f'<td>{html.escape(str(item.get("finding_count", 0)))}</td>'
+            f'<td>{html.escape(str(intelligence))}</td>'
             "</tr>"
         )
 
@@ -166,10 +182,25 @@ class PortfolioDashboard:
             )
         return "".join(rows)
 
+    @staticmethod
+    def _backlog_items(backlog: dict[str, Any]) -> str:
+        items = backlog.get("items", [])[:10]
+        if not items:
+            return '<li class="ok">No evidence-backed work is currently recommended.</li>'
+        return "".join(
+            f'<li><strong>{html.escape(str(item.get("repository", "unknown")))}</strong> — '
+            f'{html.escape(str(item.get("title", "")))} '
+            f'<span class="muted">priority {html.escape(str(item.get("priority_score", 0)))}</span></li>'
+            for item in items
+        )
+
     def _render(self, payload: dict[str, Any]) -> str:
         portfolio = payload["portfolio"]
         trends = payload["trends"]
         policy = payload["policy"]
+        backlog = payload["backlog"]
+        reuse = payload["reuse"]
+        lineage = payload["lineage"]
         runs = payload["runs"]
         summary = portfolio.get("summary", {})
         repositories = portfolio.get("repositories", [])
@@ -181,11 +212,11 @@ class PortfolioDashboard:
 
         cards = [
             ("Repositories", summary.get("repository_count", 0)),
-            ("Active", summary.get("active_count", 0)),
+            ("Intelligence", f"{float(summary.get('intelligence_score', 0) or 0):.1f}"),
             ("Analysis coverage", f"{summary.get('analysis_coverage', 0):.0%}"),
-            ("Findings", summary.get("total_findings", 0)),
-            ("Policy", policy.get("status", "not-evaluated")),
-            ("Refresh runs", len(runs)),
+            ("Backlog", backlog.get("summary", {}).get("item_count", 0)),
+            ("Duplicate groups", reuse.get("summary", {}).get("duplicate_group_count", 0)),
+            ("Lineage edges", lineage.get("summary", {}).get("edge_count", 0)),
         ]
         card_html = "".join(
             f'<article class="card"><span>{html.escape(str(label))}</span><strong>{html.escape(str(value))}</strong></article>'
@@ -224,8 +255,9 @@ svg{{width:100%;height:220px;display:block}}.axis{{stroke:var(--line);stroke-wid
 <article class="panel"><h2>Languages</h2>{self._bars(languages)}</article>
 <article class="panel"><h2>Regression signals</h2><ul>{regression_html}</ul></article>
 <article class="panel"><h2>Attention queue <span class="attention">{attention_count}</span></h2><ul>{attention_html}</ul></article>
+<article class="panel wide"><h2>Highest-priority backlog</h2><ul>{self._backlog_items(backlog)}</ul></article>
 <article class="panel wide"><h2>Policy — {html.escape(str(policy.get('status', 'not-evaluated')))} · failures {policy_summary.get('failure_count', 0)} · warnings {policy_summary.get('warning_count', 0)}</h2><ul>{self._policy_items(policy)}</ul></article>
 <article class="panel wide"><h2>Recent refresh runs</h2><table><thead><tr><th>Status</th><th>Duration</th><th>Failed stages</th><th>Record</th></tr></thead><tbody>{self._run_rows(runs)}</tbody></table></article>
-<article class="panel wide"><h2>Repositories</h2><table><thead><tr><th>Repository</th><th>Status</th><th>Language</th><th>Tests</th><th>Findings</th></tr></thead><tbody>{repository_rows}</tbody></table></article>
+<article class="panel wide"><h2>Repositories</h2><table><thead><tr><th>Repository</th><th>Status</th><th>Language</th><th>Tests</th><th>Findings</th><th>Intelligence</th></tr></thead><tbody>{repository_rows}</tbody></table></article>
 </section></main></body></html>
 """
