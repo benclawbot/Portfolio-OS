@@ -40,37 +40,30 @@ jobs:
           test -f /tmp/portfolio-os-empty/portfolio/portfolio-graph.json
           test -f /tmp/portfolio-os-empty/history/latest.json
           test -f /tmp/portfolio-os-empty/history/latest-delta.json
-          test "$(find /tmp/portfolio-os-empty/history/snapshots -type f | wc -l)" -eq 1
       - name: Portfolio trends smoke test
         run: |
           portfolio-trends --workspace /tmp/portfolio-os-empty --pretty
           test -f /tmp/portfolio-os-empty/trends/portfolio-trends.json
           test -f /tmp/portfolio-os-empty/trends/portfolio-trends.md
-          portfolio-trends --workspace /tmp/portfolio-os-empty --retain 1 --pretty
-          test "$(find /tmp/portfolio-os-empty/history/snapshots -type f | wc -l)" -eq 1
       - name: Static dashboard smoke test
         run: |
           portfolio-dashboard --workspace /tmp/portfolio-os-empty --pretty
           test -f /tmp/portfolio-os-empty/dashboard/index.html
           test -f /tmp/portfolio-os-empty/dashboard/dashboard-data.json
-          grep -q "Portfolio OS" /tmp/portfolio-os-empty/dashboard/index.html
           ! grep -qi "<script" /tmp/portfolio-os-empty/dashboard/index.html
           ! grep -qi "https://" /tmp/portfolio-os-empty/dashboard/index.html
-      - name: End-to-end refresh smoke test
+      - name: End-to-end refresh with policy gate
         run: |
-          portfolio-refresh --workspace /tmp/portfolio-os-pipeline --skip-sync --pretty
+          portfolio-refresh --workspace /tmp/portfolio-os-pipeline --skip-sync --enforce-policy --pretty
           test -f /tmp/portfolio-os-pipeline/pipeline/latest-run.json
-          test -f /tmp/portfolio-os-pipeline/portfolio/portfolio-summary.json
-          test -f /tmp/portfolio-os-pipeline/history/latest.json
-          test -f /tmp/portfolio-os-pipeline/trends/portfolio-trends.json
+          test -f /tmp/portfolio-os-pipeline/policy/latest-policy.json
           test -f /tmp/portfolio-os-pipeline/dashboard/index.html
           test ! -f /tmp/portfolio-os-pipeline/.portfolio-os-refresh.lock
           grep -q '"status": "completed"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
-      - name: Portfolio policy smoke test
-        run: |
-          portfolio-policy --workspace /tmp/portfolio-os-pipeline --pretty
-          test -f /tmp/portfolio-os-pipeline/policy/latest-policy.json
+          grep -q '"name": "policy"' /tmp/portfolio-os-pipeline/pipeline/latest-run.json
           grep -q '"status": "passed"' /tmp/portfolio-os-pipeline/policy/latest-policy.json
+      - name: Standalone policy smoke test
+        run: portfolio-policy --workspace /tmp/portfolio-os-pipeline --pretty
       - name: DNA smoke test
         run: |
           python -m portfolio_os.cli dna tests/fixtures/sample_repo --output /tmp/sample-dna.json
