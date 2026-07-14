@@ -110,6 +110,8 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 python -m build
 ```
 
+Stable releases are produced by the GitHub Actions **Release** workflow. It verifies the version, reruns compilation, linting and tests, builds and reinstalls the wheel, generates SHA-256 checksums, creates an annotated tag, and publishes the GitHub Release. See [`docs/RELEASING.md`](docs/RELEASING.md).
+
 ## Documentation
 
 - [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md)
@@ -124,6 +126,7 @@ python -m build
 - [`docs/REFRESH-PIPELINE.md`](docs/REFRESH-PIPELINE.md)
 - [`docs/PORTFOLIO-POLICY.md`](docs/PORTFOLIO-POLICY.md)
 - [`docs/OPERATIONS-AND-VALIDATION.md`](docs/OPERATIONS-AND-VALIDATION.md)
+- [`docs/RELEASING.md`](docs/RELEASING.md)
 - [`CHANGELOG.md`](CHANGELOG.md)
 
 Portfolio-level decisions remain under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
