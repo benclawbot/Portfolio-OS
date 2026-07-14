@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
+from portfolio_os.artifacts import ArtifactManager
 from portfolio_os.backlog import PortfolioBacklog
 from portfolio_os.generators import PortfolioDocumentGenerator
 from portfolio_os.jobs import JobQueue
@@ -20,6 +21,7 @@ class PortfolioService:
     def __init__(self, workspace: Path) -> None:
         self.workspace = workspace.expanduser().resolve()
         self.jobs = JobQueue(self.workspace)
+        self.artifacts = ArtifactManager(self.workspace)
 
     def health(self) -> dict[str, Any]:
         return {
@@ -39,8 +41,16 @@ class PortfolioService:
             return {"path": relative, "content_type": "application/json", "content": payload}
         return {"path": relative, "content_type": "text/plain", "content": path.read_text(encoding="utf-8")}
 
+    def artifact_by_id(self, artifact_id: str) -> dict[str, Any]:
+        path = self.artifacts.resolve(artifact_id)
+        return self.artifact(path.relative_to(self.workspace).as_posix())
+
+    def catalog(self) -> dict[str, Any]:
+        result = self.artifacts.build_catalog()
+        return json.loads(result.catalog_path.read_text(encoding="utf-8"))
+
     def submit(self, kind: str, parameters: dict[str, Any] | None = None) -> dict[str, Any]:
-        allowed = {"report", "backlog", "trends", "documents"}
+        allowed = {"report", "backlog", "trends", "documents", "artifacts"}
         if kind not in allowed:
             raise ValueError(f"unsupported job kind: {kind}")
         return self.jobs.submit(kind, parameters).to_dict()
@@ -68,6 +78,7 @@ class PortfolioService:
             "backlog": lambda parameters: PortfolioBacklog(self.workspace).build().to_dict(),
             "trends": run_trends,
             "documents": lambda parameters: PortfolioDocumentGenerator(self.workspace).build().to_dict(),
+            "artifacts": lambda parameters: ArtifactManager(self.workspace).build_catalog().to_dict(),
         }
         result = self.jobs.run_next(handlers)
         return result.to_dict() if result else None
@@ -99,6 +110,13 @@ class PortfolioRequestHandler(BaseHTTPRequestHandler):
                 else:
                     self._json(HTTPStatus.OK, job.to_dict())
                 return
+            if parsed.path == "/v1/artifacts/catalog":
+                self._json(HTTPStatus.OK, self.service.catalog())
+                return
+            if parsed.path.startswith("/v1/artifacts/"):
+                artifact_id = parsed.path.rsplit("/", 1)[-1]
+                self._json(HTTPStatus.OK, self.service.artifact_by_id(artifact_id))
+                return
             if parsed.path == "/v1/artifacts":
                 relative = parse_qs(parsed.query).get("path", [""])[0]
                 self._json(HTTPStatus.OK, self.service.artifact(relative))
@@ -106,6 +124,8 @@ class PortfolioRequestHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.NOT_FOUND, {"error": "route not found"})
         except FileNotFoundError:
             self._json(HTTPStatus.NOT_FOUND, {"error": "artifact not found"})
+        except KeyError:
+            self._json(HTTPStatus.NOT_FOUND, {"error": "artifact id not found"})
         except (ValueError, json.JSONDecodeError) as error:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
