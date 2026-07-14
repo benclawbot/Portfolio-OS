@@ -114,8 +114,11 @@ jobs:
       - name: Lint
         run: python -m ruff check portfolio_os tests
 
+      - name: Type check
+        run: python -m pyright portfolio_os
+
       - name: Test
-        run: python -m pytest -q --cov=portfolio_os --cov-report=term-missing
+        run: python -m pytest -q --cov=portfolio_os --cov-branch --cov-report=term-missing --cov-fail-under=90
 
       - name: Build distributions
         run: python -m build
