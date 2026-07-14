@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example 1.0.0 or v1.0.0"
+        description: "Release version, for example 1.1.0 or v1.1.0"
         required: true
         type: string
       target:
@@ -34,7 +34,7 @@ jobs:
           version="${INPUT_VERSION#v}"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid release version: $INPUT_VERSION" >&2
-            echo "Use a value such as 1.0.0 or v1.0.0." >&2
+            echo "Use a value such as 1.1.0 or v1.1.0." >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -130,6 +130,15 @@ jobs:
           python -m pip install --force-reinstall dist/*.whl
           portfolio-os --help >/dev/null
           portfolio-refresh --help >/dev/null
+          portfolio-github-index --help >/dev/null
+          portfolio-backlog --help >/dev/null
+          portfolio-artifacts --help >/dev/null
+          portfolio-service --help >/dev/null
+          portfolio-report --help >/dev/null
+          portfolio-trends --help >/dev/null
+          portfolio-dashboard --help >/dev/null
+          portfolio-policy --help >/dev/null
+          portfolio-ops --help >/dev/null
           portfolio-workspace --help >/dev/null
 
       - name: Create checksums
