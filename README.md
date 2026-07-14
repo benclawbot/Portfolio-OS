@@ -2,7 +2,7 @@
 
 Private governance and automation for the `benclawbot` GitHub portfolio.
 
-Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, and builds an explainable portfolio knowledge graph. Destructive portfolio actions remain disabled by default.
+Portfolio OS inventories repositories, analyzes implementation evidence, generates code-derived documentation, compares repository DNA, builds an explainable portfolio knowledge graph, and safely synchronizes a managed local workspace. Destructive portfolio actions remain disabled by default.
 
 ## Phase 1: repository analysis
 
@@ -50,9 +50,21 @@ python -m portfolio_os.cli graph-path reports/latest/portfolio-graph.json repo:r
 
 See [`docs/KNOWLEDGE-GRAPH.md`](docs/KNOWLEDGE-GRAPH.md).
 
+## GitHub synchronization and managed workspace
+
+Portfolio OS `0.7.0` discovers repositories owned by the configured account, including private repositories visible to the token, and maintains safe local checkouts.
+
+```bash
+export GITHUB_TOKEN=github_pat_...
+python -m portfolio_os.cli sync --pretty
+python -m portfolio_os.cli workspace-status --pretty
+```
+
+Missing repositories are cloned. Existing clean repositories are fetched and may advance only through a fast-forward merge on their checked-out default branch. Dirty trees, other branches, detached HEADs, archived repositories, origin mismatches, path conflicts, and removed or inaccessible repositories are reported without destructive changes. Only repositories with changed HEAD or relevant metadata are analyzed. See [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md).
+
 ## Production foundation
 
-Portfolio OS `0.6.0` adds typed runtime configuration, structured logging, and a stable analyzer plugin registry.
+Typed runtime configuration, structured logging, and a stable analyzer plugin registry are available throughout the package.
 
 ```bash
 cp portfolio-os.example.json portfolio-os.json
@@ -89,5 +101,7 @@ python -m pytest -q --cov=portfolio_os --cov-report=term-missing
 - README replacement requires explicit `--write`.
 - DNA similarity is review evidence, not an automatic merge decision.
 - Analyzer plugins are read-only by contract unless a separate explicit execution workflow authorizes changes.
+- GitHub synchronization never resets, rebases, cleans, force-updates, deletes branches, or deletes local repositories.
+- Dirty working trees and non-default branches are preserved and reported.
 
 Portfolio-level decisions live under [`docs/`](docs/), with the machine-readable inventory in [`config/portfolio.json`](config/portfolio.json).
