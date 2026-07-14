@@ -55,6 +55,7 @@ class ArtifactManager:
         "reuse",
         "lineage",
         "documents",
+        "telemetry",
         "jobs",
     )
 
