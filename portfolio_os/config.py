@@ -30,17 +30,19 @@ class GitHubSyncConfig:
 @dataclass(frozen=True)
 class PortfolioConfig:
     workspace: Path = Path(".portfolio-os")
+    profile: str = "default"
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     github: GitHubSyncConfig = field(default_factory=GitHubSyncConfig)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PortfolioConfig":
+    def from_dict(cls, data: dict[str, Any], *, profile: str = "default") -> "PortfolioConfig":
         analysis_data = data.get("analysis", {})
         logging_data = data.get("logging", {})
         github_data = data.get("github", {})
         return cls(
             workspace=Path(data.get("workspace", ".portfolio-os")),
+            profile=profile,
             analysis=AnalysisConfig(
                 enabled_analyzers=tuple(analysis_data.get("enabled_analyzers", [])),
                 disabled_analyzers=tuple(analysis_data.get("disabled_analyzers", [])),
@@ -58,8 +60,33 @@ class PortfolioConfig:
         )
 
 
-def load_runtime_config(path: Path | None = None) -> PortfolioConfig:
+def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_runtime_config(path: Path | None = None, profile: str | None = None) -> PortfolioConfig:
     candidate = path or Path(os.environ.get("PORTFOLIO_OS_CONFIG", "portfolio-os.json"))
+    selected = profile or os.environ.get("PORTFOLIO_OS_PROFILE", "default")
     if not candidate.exists():
-        return PortfolioConfig()
-    return PortfolioConfig.from_dict(json.loads(candidate.read_text(encoding="utf-8")))
+        return PortfolioConfig(profile=selected)
+    payload = json.loads(candidate.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("runtime configuration root must be an object")
+    profiles = payload.get("profiles", {})
+    defaults = {key: value for key, value in payload.items() if key != "profiles"}
+    if selected == "default":
+        selected_data = defaults
+    else:
+        if not isinstance(profiles, dict) or selected not in profiles:
+            raise ValueError(f"unknown runtime configuration profile: {selected}")
+        profile_data = profiles[selected]
+        if not isinstance(profile_data, dict):
+            raise ValueError(f"runtime configuration profile must be an object: {selected}")
+        selected_data = _merge(defaults, profile_data)
+    return PortfolioConfig.from_dict(selected_data, profile=selected)
