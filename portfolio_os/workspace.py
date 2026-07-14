@@ -42,6 +42,7 @@ class WorkspaceValidator:
 
     ARTIFACTS = {
         "sync_state": ("sync-state.json", True),
+        "github_index": ("github/index.json", False),
         "portfolio_summary": ("portfolio/portfolio-summary.json", True),
         "portfolio_report": ("portfolio/portfolio-report.md", True),
         "portfolio_graph": ("portfolio/portfolio-graph.json", True),
@@ -93,9 +94,12 @@ class WorkspaceValidator:
     def repair_plan(self) -> dict[str, Any]:
         validation = self.validate()
         failed = {check.name for check in validation.checks if check.status == "failed"}
+        warnings = {check.name for check in validation.checks if check.status == "warning"}
         stages = []
         if "sync_state" in failed:
             stages.append("sync")
+        if "github_index" in failed | warnings:
+            stages.append("github-index")
         if failed & {"portfolio_summary", "portfolio_report", "portfolio_graph", "history_latest", "history_delta"}:
             stages.append("report")
         if "trends" in failed:
