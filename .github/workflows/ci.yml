@@ -32,6 +32,7 @@ jobs:
       - name: Console entry points
         run: |
           portfolio-os --help
+          portfolio-github-index --help
           portfolio-report --help
           portfolio-trends --help
           portfolio-dashboard --help
@@ -41,8 +42,9 @@ jobs:
           portfolio-workspace --help
       - name: End-to-end 1.0 workspace
         run: |
-          mkdir -p /tmp/portfolio-os-v1
+          mkdir -p /tmp/portfolio-os-v1/github
           printf '{"owner":"benclawbot","synchronized_at":"","repositories":{}}\n' > /tmp/portfolio-os-v1/sync-state.json
+          printf '{"schema_version":1,"owner":"benclawbot","repositories":{}}\n' > /tmp/portfolio-os-v1/github/index.json
           portfolio-refresh --workspace /tmp/portfolio-os-v1 --skip-sync --enforce-policy --pretty
           portfolio-policy --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-ops runs --workspace /tmp/portfolio-os-v1 --pretty
@@ -58,6 +60,7 @@ jobs:
           grep -q '"status": "completed"' /tmp/portfolio-os-v1/pipeline/latest-run.json
           grep -q '"status": "passed"' /tmp/portfolio-os-v1/policy/latest-policy.json
           grep -q '"validation"' /tmp/portfolio-os-v1/workspace/manifest.json
+          grep -q '"github_index"' /tmp/portfolio-os-v1/workspace/manifest.json
           grep -q "Recent refresh runs" /tmp/portfolio-os-v1/dashboard/index.html
           grep -q "Policy" /tmp/portfolio-os-v1/dashboard/index.html
           ! grep -qi "<script" /tmp/portfolio-os-v1/dashboard/index.html
