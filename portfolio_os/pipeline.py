@@ -18,6 +18,7 @@ from portfolio_os.operations import RefreshOperations
 from portfolio_os.policy import PortfolioPolicy
 from portfolio_os.portfolio import PortfolioBuilder
 from portfolio_os.reuse import PortfolioReuseAnalyzer
+from portfolio_os.telemetry import TelemetryReporter
 from portfolio_os.trends import PortfolioTrends
 
 
@@ -97,6 +98,7 @@ class PortfolioPipeline:
                 ("documents", self._documents_stage),
                 ("dashboard", self._dashboard_stage),
                 ("artifacts", self._artifacts_stage),
+                ("telemetry", self._telemetry_stage),
                 ("policy", self._policy_stage if self.enforce_policy else None),
             ]
             blocked = False
@@ -127,6 +129,7 @@ class PortfolioPipeline:
             status = "failed" if any(stage.status == "failed" for stage in stages) else "completed"
             result = PipelineResult(str(self.workspace), status, tuple(stages), started, completed)
             self.operations.record_run(result.to_dict())
+            TelemetryReporter(self.workspace).build()
             if (self.workspace / "portfolio" / "portfolio-summary.json").exists():
                 PortfolioDashboard(self.workspace).build()
                 ArtifactManager(self.workspace).build_catalog()
@@ -171,6 +174,9 @@ class PortfolioPipeline:
 
     def _artifacts_stage(self) -> dict[str, Any]:
         return ArtifactManager(self.workspace).build_catalog().to_dict()
+
+    def _telemetry_stage(self) -> dict[str, Any]:
+        return TelemetryReporter(self.workspace).build().to_dict()
 
     def _policy_stage(self) -> dict[str, Any]:
         result = PortfolioPolicy(self.workspace, self.policy_path).evaluate(pipeline_status="completed")
