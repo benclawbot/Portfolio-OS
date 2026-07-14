@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "min_analysis_coverage": {"value": 0.8, "level": "fail"},
+    "max_dirty_count": {"value": 0, "level": "warn"},
+    "max_inaccessible_count": {"value": 0, "level": "warn"},
+    "max_analysis_errors": {"value": 0, "level": "fail"},
+    "max_total_findings": {"value": 100, "level": "warn", "enabled": false},
+    "max_regressions": {"value": 0, "level": "warn"},
+    "min_history_snapshots": {"value": 1, "level": "warn"},
+    "require_pipeline_completed": {"value": true, "level": "fail"}
+  }
+}
