@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.0
+
+Portfolio OS closes the governance-to-implementation loop with an explicit Medusa execution bridge.
+
+### Medusa integration
+
+- explicit acceptance of generated recommendations before execution;
+- durable execution requests containing repository scope, evidence, acceptance criteria and verification plans;
+- safe resolution of synchronized repository paths;
+- rejection of dirty, archived, inaccessible or unmanaged repositories;
+- bounded `medusa --repo <path> run <objective>` execution without shell interpolation;
+- immutable execution receipts with exact arguments, timestamps, exit code, stdout, stderr and verification evidence;
+- SHA-256 binding between each receipt and its accepted request;
+- `portfolio-execute` commands for accepting, executing and inspecting requests and receipts.
+
+### Safety
+
+- recommendations remain non-executable proposals until explicitly accepted;
+- acceptance and execution are separate operations;
+- unrelated user changes must be preserved;
+- a successful Medusa exit does not replace the next independent Portfolio OS refresh and reassessment.
+
 ## 1.1.0
 
 Portfolio OS completes the original portfolio operating-system backlog with an evidence-driven prioritization loop and a service boundary suitable for future Medusa integration.
