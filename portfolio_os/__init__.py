@@ -10,6 +10,7 @@ from portfolio_os.config import PortfolioConfig, load_runtime_config
 from portfolio_os.dashboard import DashboardResult, PortfolioDashboard
 from portfolio_os.dna import DNABuilder, SimilarityEngine
 from portfolio_os.engine import AnalysisEngine
+from portfolio_os.execution import ExecutionReceipt, ExecutionRequest, MedusaExecutionBridge, SubprocessRunner
 from portfolio_os.generators import GeneratedDocuments, PortfolioDocumentGenerator
 from portfolio_os.github_index import GitHubIndexResult, GitHubMetadataIndexer
 from portfolio_os.graph import GraphBuilder, GraphQuery, GraphStore, KnowledgeGraph
@@ -89,5 +90,9 @@ __all__ = [
     "DuplicateOccurrence",
     "TelemetryReporter",
     "TelemetryResult",
+    "MedusaExecutionBridge",
+    "ExecutionRequest",
+    "ExecutionReceipt",
+    "SubprocessRunner",
 ]
-__version__ = "1.1.0"
+__version__ = "1.2.0"
