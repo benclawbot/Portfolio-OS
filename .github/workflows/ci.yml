@@ -70,6 +70,7 @@ jobs:
           portfolio-backlog --help
           portfolio-artifacts --help
           portfolio-service --help
+          portfolio-execute --help
           portfolio-report --help
           portfolio-trends --help
           portfolio-dashboard --help
@@ -87,6 +88,8 @@ jobs:
           portfolio-backlog --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-artifacts --workspace /tmp/portfolio-os-v1 catalog
           portfolio-service --workspace /tmp/portfolio-os-v1 jobs
+          portfolio-execute --workspace /tmp/portfolio-os-v1 requests
+          portfolio-execute --workspace /tmp/portfolio-os-v1 receipts
           portfolio-ops runs --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-ops lock-status --workspace /tmp/portfolio-os-v1 --pretty
           portfolio-workspace validate --workspace /tmp/portfolio-os-v1 --pretty
