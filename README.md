@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/portfolio-os-banner.svg" alt="Portfolio OS" width="100%" />
+</p>
+
 # Portfolio OS
 
 Private, evidence-based governance and automation for the `benclawbot` GitHub portfolio.
